@@ -16,6 +16,9 @@ import * as schema from "../db/schema.js";
 import { getStaffContext } from "../lib/sessionAuth.js";
 import { signAuthToken, getAuthSecret } from "../lib/authToken.js";
 import { createAuditLog } from "../lib/audit/logger.js";
+import { hashPin } from "../lib/pin.js";
+
+const PIN_RE = /^\d{4,6}$/;
 
 const PIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 
@@ -107,24 +110,57 @@ export function registerOnboardingRoutes(
       const b = req.body as {
         salonName?: string;
         adminName?: string;
+        adminPin?: string;
         authMode?: AuthMode;
         staff?: { displayName: string; role?: "owner" | "stylist"; pin?: string }[];
       };
       const salonName = String(b.salonName ?? "").trim();
       const adminName = String(b.adminName ?? "").trim();
+      const adminPin  = String(b.adminPin  ?? "").trim();
+
       if (adminName.length < 1) {
         res.status(400).json({ error: "admin_name_required" });
         return;
       }
-      const authMode: AuthMode = b.authMode === "pin" ? "pin" : "name_select";
+      // PIN is now MANDATORY for the admin (security + audit accountability)
+      if (!PIN_RE.test(adminPin)) {
+        res.status(400).json({ error: "admin_pin_invalid", message: "PIN muss 4–6 Ziffern sein." });
+        return;
+      }
+      // Validate every staff PIN too (if PIN auth mode)
+      const extras = (b.staff ?? []).filter(
+        (s) => typeof s.displayName === "string" && s.displayName.trim().length > 0,
+      );
+      const authMode: AuthMode = b.authMode === "name_select" ? "name_select" : "pin";
+      if (authMode === "pin") {
+        for (const s of extras) {
+          if (!PIN_RE.test(String(s.pin ?? "").trim())) {
+            res.status(400).json({
+              error: "staff_pin_invalid",
+              message: `PIN für "${s.displayName}" muss 4–6 Ziffern sein.`,
+            });
+            return;
+          }
+        }
+        // PINs must be unique-ish: warn if duplicates (helps avoid mistypes)
+        const pins = [adminPin, ...extras.map((s) => String(s.pin ?? "").trim())];
+        const uniq = new Set(pins);
+        if (uniq.size !== pins.length) {
+          res.status(400).json({
+            error: "duplicate_pin",
+            message: "Zwei Personen haben den gleichen PIN. Bitte unterschiedliche PINs vergeben.",
+          });
+          return;
+        }
+      }
 
-      // 1. Create admin (owner role)
+      // 1. Create admin (owner role) — always has a PIN now
       const [admin] = db
         .insert(schema.staff)
         .values({
           displayName: adminName,
           role: "owner",
-          pinHash: null,
+          pinHash: hashPin(adminPin),
           active: true,
         })
         .returning()
@@ -134,18 +170,16 @@ export function registerOnboardingRoutes(
         return;
       }
 
-      // 2. Create additional staff if provided
-      const extras = (b.staff ?? []).filter(
-        (s) => typeof s.displayName === "string" && s.displayName.trim().length > 0,
-      );
+      // 2. Create additional staff with their PINs
       const createdStaff: typeof schema.staff.$inferSelect[] = [];
       for (const s of extras) {
+        const sPin = String(s.pin ?? "").trim();
         const [row] = db
           .insert(schema.staff)
           .values({
             displayName: s.displayName.trim(),
             role: s.role === "owner" ? "owner" : "stylist",
-            pinHash: null,
+            pinHash: authMode === "pin" && PIN_RE.test(sPin) ? hashPin(sPin) : null,
             active: true,
           })
           .returning()

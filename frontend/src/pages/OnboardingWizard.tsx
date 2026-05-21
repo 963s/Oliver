@@ -3,17 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { http } from "../lib/apiClient";
 import { useAuthStore } from "../store/authStore";
 
-type AuthMode = "name_select" | "pin";
-
 type StaffDraft = {
   displayName: string;
   role: "owner" | "stylist";
+  pin: string;
 };
 
 type SetupStatus = {
   needsOnboarding: boolean;
   salonName: string;
-  authMode: AuthMode;
+  authMode: "name_select" | "pin";
   staffCount: number;
 };
 
@@ -23,9 +22,12 @@ type SetupResult = {
   staff: { id: number; displayName: string; role: string };
 };
 
+const PIN_RE = /^\d{4,6}$/;
+
 /**
- * First-launch wizard. Shown when no staff exists in the DB.
- * Steps: Welcome → Salon name → Admin name → Add staff → Done (auto-login).
+ * Erstmaliger Setup-Assistent.
+ * 4 Schritte: Willkommen → Salon → Inhaber+PIN → Team (mit PIN je Person).
+ * PIN ist Pflicht — wird per bcrypt im Backend gehasht.
  */
 export function OnboardingWizard() {
   const navigate = useNavigate();
@@ -35,14 +37,15 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [salonName, setSalonName] = useState("");
   const [adminName, setAdminName] = useState("");
-  const [authMode, setAuthMode] = useState<AuthMode>("name_select");
+  const [adminPin,  setAdminPin]  = useState("");
   const [staff, setStaff] = useState<StaffDraft[]>([]);
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffRole, setNewStaffRole] = useState<"owner" | "stylist">("stylist");
+  const [newStaffPin,  setNewStaffPin]  = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  // Safety: if onboarding is not needed (someone navigated here manually), redirect home.
+  // Safety: if onboarding is not needed, redirect home.
   useEffect(() => {
     void http
       .get<SetupStatus>("/api/system/setup-status")
@@ -50,39 +53,52 @@ export function OnboardingWizard() {
         if (!r.data.needsOnboarding) navigate("/", { replace: true });
       })
       .catch(() => {
-        /* allow to proceed — onboarding endpoint may be the only one reachable */
+        /* allow to proceed — onboarding may be the only endpoint reachable */
       });
   }, [navigate]);
 
   const addStaffRow = () => {
     const name = newStaffName.trim();
-    if (!name) return;
-    setStaff((s) => [...s, { displayName: name, role: newStaffRole }]);
-    setNewStaffName("");
-    setNewStaffRole("stylist");
+    const pin  = newStaffPin.trim();
+    if (!name) { setErr("Name darf nicht leer sein."); return; }
+    if (!PIN_RE.test(pin)) { setErr("PIN muss 4–6 Ziffern sein."); return; }
+    // Check for duplicate PIN against admin or other staff
+    const allPins = [adminPin, ...staff.map((s) => s.pin)];
+    if (allPins.includes(pin)) {
+      setErr("Dieser PIN ist schon vergeben — bitte einen anderen wählen.");
+      return;
+    }
+    setStaff((s) => [...s, { displayName: name, role: newStaffRole, pin }]);
+    setNewStaffName(""); setNewStaffPin(""); setNewStaffRole("stylist");
+    setErr("");
   };
 
   const removeStaffRow = (idx: number) => {
     setStaff((s) => s.filter((_, i) => i !== idx));
   };
 
+  const validateAdmin = (): string | null => {
+    if (!adminName.trim()) return "Bitte deinen Namen als Inhaber eingeben.";
+    if (!PIN_RE.test(adminPin)) return "PIN muss 4–6 Ziffern haben.";
+    return null;
+  };
+
   const submit = async () => {
-    if (!adminName.trim()) {
-      setErr("Bitte deinen Namen als Inhaber eingeben.");
-      setStep(2);
-      return;
-    }
+    const adminErr = validateAdmin();
+    if (adminErr) { setErr(adminErr); setStep(2); return; }
+
     setBusy(true);
     setErr("");
     try {
       const r = await http.post<SetupResult>("/api/system/initial-setup", {
         salonName: salonName.trim(),
         adminName: adminName.trim(),
-        authMode,
-        staff,
+        adminPin:  adminPin.trim(),
+        authMode: "pin",
+        staff: staff.map((s) => ({ displayName: s.displayName, role: s.role, pin: s.pin })),
       });
       const data = r.data;
-      // Auto-login as the admin
+      // Auto-login as admin
       localStorage.setItem("or:authToken", data.token);
       localStorage.setItem("or:staffId", String(data.staff.id));
       localStorage.setItem("or:staffRole", data.staff.role);
@@ -98,27 +114,41 @@ export function OnboardingWizard() {
 
   const stepLabels = ["Willkommen", "Salon", "Inhaber", "Team"];
 
+  /* Reusable PIN input — only allows digits, max 6 */
+  const PinInput = ({ value, onChange, autoFocus = false, label }: {
+    value: string;
+    onChange: (v: string) => void;
+    autoFocus?: boolean;
+    label: string;
+  }) => (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+        {label}
+      </label>
+      <input
+        autoFocus={autoFocus}
+        inputMode="numeric"
+        pattern="\d*"
+        maxLength={6}
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+        placeholder="4–6 Ziffern"
+        className="luxury-field w-full font-mono tracking-[0.5em]"
+      />
+    </div>
+  );
+
   return (
     <div className="relative flex h-full min-h-0 items-center justify-center overflow-y-auto bg-canvas-white p-6 text-deep-charcoal">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,var(--editorial-pulse-dim),transparent_55%)]" aria-hidden />
 
-      <div className="relative z-[1] w-full max-w-2xl border border-deep-charcoal/[0.08] bg-gray-100/95 p-10 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.85)]">
+      <div className="relative z-[1] w-full max-w-2xl border border-deep-charcoal/[0.08] bg-gray-100/95 p-8 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.85)] sm:p-10">
         {/* Step indicator */}
-        <div className="mb-8 flex items-center gap-2 text-xs uppercase tracking-[0.2em]">
+        <div className="mb-7 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] uppercase tracking-[0.18em]">
           {stepLabels.map((label, idx) => (
             <div key={label} className="flex items-center gap-2">
-              <span
-                className={`h-1.5 w-12 ${
-                  idx <= step ? "bg-champagne-gold" : "bg-deep-charcoal/15"
-                }`}
-              />
-              <span
-                className={
-                  idx === step
-                    ? "font-semibold text-deep-charcoal"
-                    : "text-deep-charcoal/35"
-                }
-              >
+              <span className={`h-1 w-8 ${idx <= step ? "bg-champagne-gold" : "bg-deep-charcoal/15"}`} />
+              <span className={idx === step ? "font-semibold text-deep-charcoal" : "text-deep-charcoal/35"}>
                 {label}
               </span>
             </div>
@@ -128,21 +158,24 @@ export function OnboardingWizard() {
         {/* Step 0: Welcome */}
         {step === 0 && (
           <div>
-            <h1 className="font-editorial-display text-4xl font-normal uppercase tracking-[0.2em] text-deep-charcoal">
+            <h1 className="font-editorial-display text-3xl font-normal uppercase tracking-[0.2em] sm:text-4xl">
               Willkommen
             </h1>
-            <p className="mt-6 text-base font-light leading-relaxed text-deep-charcoal/70">
-              Dies ist die erste Einrichtung deines Salons. In wenigen Schritten ist alles bereit.
+            <p className="mt-5 text-sm font-light leading-relaxed text-deep-charcoal/70">
+              Erste Einrichtung deines Salons. Bitte 4 kurze Schritte durchlaufen.
             </p>
-            <ul className="mt-6 space-y-2 text-sm text-deep-charcoal/70">
-              <li>• Salon-Name (erscheint im Kopf der App)</li>
-              <li>• Dein Name als Inhaber</li>
-              <li>• Optional: Team-Mitglieder hinzufügen</li>
+            <ul className="mt-4 space-y-1.5 text-sm text-deep-charcoal/70">
+              <li>1. Salon-Name</li>
+              <li>2. Dein Name & PIN als Inhaber</li>
+              <li>3. Team-Mitglieder mit eigenem PIN (optional)</li>
             </ul>
+            <p className="mt-5 rounded border border-amber-300/50 bg-amber-50/60 p-3 text-xs text-amber-800">
+              ⚠ Jede Person erhält einen 4–6-stelligen PIN. Dies erlaubt eindeutige Zuordnung im Verkauf­sprotokoll (GoBD / Revisionssicherheit).
+            </p>
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="editorial-pulse-fill mt-10 px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] hover:opacity-90"
+              className="editorial-pulse-fill mt-7 px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:opacity-90"
             >
               Los geht's →
             </button>
@@ -152,98 +185,59 @@ export function OnboardingWizard() {
         {/* Step 1: Salon name */}
         {step === 1 && (
           <div>
-            <h2 className="font-editorial-display text-3xl uppercase tracking-[0.18em]">
+            <h2 className="font-editorial-display text-2xl uppercase tracking-[0.18em] sm:text-3xl">
               Salon-Name
             </h2>
             <p className="mt-3 text-sm text-deep-charcoal/60">
-              Wie heißt dein Studio? Dieser Name erscheint später überall in der App.
+              Wie heißt dein Studio? Dieser Name erscheint im Anmeldebildschirm.
             </p>
             <input
               autoFocus
               value={salonName}
               onChange={(e) => setSalonName(e.target.value)}
               placeholder="z. B. Oliver Roos Frisuren"
-              className="luxury-field mt-6 w-full text-lg"
+              className="luxury-field mt-5 w-full text-base"
             />
-            <div className="mt-10 flex justify-between">
-              <button type="button" onClick={() => setStep(0)} className="px-4 py-2 text-sm uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">
-                ← Zurück
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="editorial-pulse-fill px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] hover:opacity-90"
-              >
-                Weiter →
-              </button>
+            <div className="mt-9 flex justify-between">
+              <button type="button" onClick={() => setStep(0)} className="px-4 py-2 text-xs uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">← Zurück</button>
+              <button type="button" onClick={() => setStep(2)} className="editorial-pulse-fill px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:opacity-90">Weiter →</button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Admin name + auth mode */}
+        {/* Step 2: Admin name + PIN */}
         {step === 2 && (
           <div>
-            <h2 className="font-editorial-display text-3xl uppercase tracking-[0.18em]">
+            <h2 className="font-editorial-display text-2xl uppercase tracking-[0.18em] sm:text-3xl">
               Inhaber
             </h2>
             <p className="mt-3 text-sm text-deep-charcoal/60">
-              Du bist der Inhaber. Volle Berechtigung für alle Funktionen.
+              Du bist der Inhaber. Voller Zugang auf alle Funktionen.
             </p>
-            <input
-              autoFocus
-              value={adminName}
-              onChange={(e) => setAdminName(e.target.value)}
-              placeholder="Vor- und Nachname"
-              className="luxury-field mt-6 w-full text-lg"
-            />
 
-            <div className="mt-8">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-deep-charcoal/60">
-                Anmeldung
-              </p>
-              <div className="mt-3 space-y-3">
-                <label className="flex cursor-pointer items-start gap-3 border border-deep-charcoal/10 bg-white/60 p-4 hover:bg-white">
-                  <input
-                    type="radio"
-                    name="authMode"
-                    checked={authMode === "name_select"}
-                    onChange={() => setAuthMode("name_select")}
-                    className="mt-1 accent-champagne-gold"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold">Name auswählen (empfohlen)</p>
-                    <p className="mt-1 text-xs text-deep-charcoal/60">
-                      Schnelle Anmeldung durch Antippen des eigenen Namens. Kein PIN.
-                    </p>
-                  </div>
-                </label>
-                <label className="flex cursor-pointer items-start gap-3 border border-deep-charcoal/10 bg-white/60 p-4 hover:bg-white">
-                  <input
-                    type="radio"
-                    name="authMode"
-                    checked={authMode === "pin"}
-                    onChange={() => setAuthMode("pin")}
-                    className="mt-1 accent-champagne-gold"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold">PIN erforderlich</p>
-                    <p className="mt-1 text-xs text-deep-charcoal/60">
-                      Jedes Teammitglied erhält einen 4–6-stelligen PIN (höhere Sicherheit). Kann später in den Einstellungen umgestellt werden.
-                    </p>
-                  </div>
-                </label>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">Name</label>
+                <input
+                  autoFocus
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  placeholder="Vor- und Nachname"
+                  className="luxury-field w-full text-base"
+                />
               </div>
+              <PinInput value={adminPin} onChange={setAdminPin} label="PIN (4–6 Ziffern)" />
             </div>
 
-            <div className="mt-10 flex justify-between">
-              <button type="button" onClick={() => setStep(1)} className="px-4 py-2 text-sm uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">
-                ← Zurück
-              </button>
+            {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+
+            <div className="mt-9 flex justify-between">
+              <button type="button" onClick={() => setStep(1)} className="px-4 py-2 text-xs uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">← Zurück</button>
               <button
                 type="button"
-                disabled={!adminName.trim()}
-                onClick={() => setStep(3)}
-                className="editorial-pulse-fill px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] hover:opacity-90 disabled:opacity-40"
+                disabled={!!validateAdmin()}
+                onClick={() => { setErr(""); setStep(3); }}
+                className="editorial-pulse-fill px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:opacity-90 disabled:opacity-40"
               >
                 Weiter →
               </button>
@@ -254,34 +248,43 @@ export function OnboardingWizard() {
         {/* Step 3: Team + finish */}
         {step === 3 && (
           <div>
-            <h2 className="font-editorial-display text-3xl uppercase tracking-[0.18em]">
+            <h2 className="font-editorial-display text-2xl uppercase tracking-[0.18em] sm:text-3xl">
               Team
             </h2>
             <p className="mt-3 text-sm text-deep-charcoal/60">
-              Füge weitere Friseure / Mitarbeiter hinzu. Du kannst diesen Schritt überspringen und sie später im Admin-Bereich anlegen.
+              Weitere Mitarbeiter hinzufügen (optional). Jeder erhält einen eigenen PIN.
             </p>
 
-            <div className="mt-6 flex gap-2">
+            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_140px_140px_auto]">
               <input
                 value={newStaffName}
                 onChange={(e) => setNewStaffName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addStaffRow(); }}
                 placeholder="Name"
-                className="luxury-field flex-1"
+                className="luxury-field"
               />
               <select
                 value={newStaffRole}
                 onChange={(e) => setNewStaffRole(e.target.value as "owner" | "stylist")}
-                className="luxury-field luxury-select min-w-[140px]"
+                className="luxury-field luxury-select"
               >
                 <option value="stylist">Stylist</option>
-                <option value="owner">Inhaber/Manager</option>
+                <option value="owner">Inhaber</option>
               </select>
+              <input
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={6}
+                value={newStaffPin}
+                onChange={(e) => setNewStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="PIN"
+                className="luxury-field font-mono tracking-[0.3em]"
+              />
               <button
                 type="button"
                 onClick={addStaffRow}
-                disabled={!newStaffName.trim()}
-                className="border border-champagne-gold bg-champagne-gold px-5 text-sm font-semibold uppercase tracking-wider text-deep-charcoal disabled:opacity-40"
+                disabled={!newStaffName.trim() || !PIN_RE.test(newStaffPin)}
+                className="border border-champagne-gold bg-champagne-gold px-4 text-xs font-semibold uppercase tracking-wider text-deep-charcoal disabled:opacity-40"
               >
                 + Hinzufügen
               </button>
@@ -295,6 +298,9 @@ export function OnboardingWizard() {
                       <span className="text-sm font-semibold">{s.displayName}</span>
                       <span className="ml-3 text-xs uppercase tracking-wider text-deep-charcoal/50">
                         {s.role === "owner" ? "Inhaber" : "Stylist"}
+                      </span>
+                      <span className="ml-3 text-xs font-mono text-deep-charcoal/35">
+                        PIN: {"•".repeat(s.pin.length)}
                       </span>
                     </div>
                     <button
@@ -313,15 +319,13 @@ export function OnboardingWizard() {
               <p className="mt-4 border border-red-400/55 bg-red-50/60 px-3 py-2 text-sm text-red-600">{err}</p>
             )}
 
-            <div className="mt-10 flex justify-between">
-              <button type="button" onClick={() => setStep(2)} className="px-4 py-2 text-sm uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">
-                ← Zurück
-              </button>
+            <div className="mt-9 flex justify-between">
+              <button type="button" onClick={() => setStep(2)} className="px-4 py-2 text-xs uppercase tracking-wider text-deep-charcoal/50 hover:text-deep-charcoal">← Zurück</button>
               <button
                 type="button"
                 onClick={() => void submit()}
                 disabled={busy}
-                className="editorial-pulse-fill px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] hover:opacity-90 disabled:opacity-40"
+                className="editorial-pulse-fill px-7 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:opacity-90 disabled:opacity-40"
               >
                 {busy ? "Speichern ..." : "Fertig ✓"}
               </button>

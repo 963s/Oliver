@@ -30,13 +30,15 @@
   --app-shadow:     0 1px 3px rgba(42,37,32,0.08), 0 4px 16px rgba(42,37,32,0.05);
   --app-shadow-lg:  0 8px 32px rgba(42,37,32,0.12), 0 2px 8px rgba(42,37,32,0.06);
 
-  /* ── Fluid type scale (tuned for 21" iMac at 1920×1080) ── */
-  --text-fluid-sm:   clamp(0.8125rem, 0.78rem + 0.18vw, 0.9375rem);
-  --text-fluid-base: clamp(0.875rem,  0.83rem + 0.22vw, 1.0625rem);
-  --text-fluid-lg:   clamp(1rem,      0.94rem + 0.30vw, 1.1875rem);
-  --text-fluid-xl:   clamp(1.125rem,  1.02rem + 0.42vw, 1.4375rem);
-  --text-fluid-2xl:  clamp(1.375rem,  1.20rem + 0.65vw, 1.875rem);
-  --text-fluid-3xl:  clamp(1.625rem,  1.35rem + 1.00vw, 2.375rem);
+  /* ── Fluid type scale — moderat skalierend für 1280..2700 px ──
+     Maximalwerte sind deutlich konservativer als v1.5.0, damit Listen
+     und Modale auf 21" iMac nicht „explodieren". */
+  --text-fluid-sm:   clamp(0.75rem,   0.72rem + 0.14vw, 0.875rem);
+  --text-fluid-base: clamp(0.8125rem, 0.78rem + 0.18vw, 0.9375rem);
+  --text-fluid-lg:   clamp(0.9375rem, 0.88rem + 0.24vw, 1.0625rem);
+  --text-fluid-xl:   clamp(1.0625rem, 0.96rem + 0.32vw, 1.25rem);
+  --text-fluid-2xl:  clamp(1.25rem,   1.10rem + 0.50vw, 1.5rem);
+  --text-fluid-3xl:  clamp(1.5rem,    1.30rem + 0.75vw, 2rem);
 
   /* ── Editorial pulse accent per route ── */
   --editorial-pulse:     #D4AF37;
@@ -91,23 +93,14 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
-/* ── Screen Scaling (21-inch iMac & larger) ─────────────────────────────── */
-@media (min-width: 1280px) {
-  html { font-size: 18px; }
-}
-@media (min-width: 1500px) {
-  html { font-size: 20px; }
-}
-@media (min-width: 1900px) {
-  /* 21" iMac (1920×1080) */
-  html { font-size: 24px; }
-}
-@media (min-width: 2300px) {
-  html { font-size: 28px; }
-}
-@media (min-width: 2700px) {
-  html { font-size: 32px; }
-}
+/* ── Screen Scaling — sanft & adaptiv, kein abrupter Sprung ──────────────
+   Konservative Stufen: nie mehr als +25 % über Standard, damit Layouts
+   nicht überlaufen. clamp() in der fluid type scale erledigt den Rest. */
+@media (min-width: 1280px) { html { font-size: 16.5px; } }
+@media (min-width: 1500px) { html { font-size: 17px;   } }
+@media (min-width: 1900px) { html { font-size: 18px;   } }  /* 21" iMac */
+@media (min-width: 2300px) { html { font-size: 19px;   } }
+@media (min-width: 2700px) { html { font-size: 20px;   } }
 
 /* ── Scrollbar — light mode ───────────────────────────────────────────────── */
 * {
@@ -334,16 +327,16 @@ html.dark .luxury-field { color-scheme: dark; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   GLOBAL TYPOGRAPHY BOOST — for 21" iMac & legibility
-   Many existing components use text-[10px]/text-[9px] for labels which is too
-   small on the salon display. We bump these classes here so older code
-   benefits without touching every file.
-───────────────────────────────────────────────────────────────────────────── */
-.text-\[9px\]   { font-size: 0.75rem    !important; line-height: 1.4 !important; }
-.text-\[10px\]  { font-size: 0.8125rem  !important; line-height: 1.4 !important; }
-.text-\[11px\]  { font-size: 0.875rem   !important; line-height: 1.4 !important; }
-.text-\[12px\]  { font-size: 0.9375rem  !important; line-height: 1.45 !important; }
-.text-\[13px\]  { font-size: 1rem       !important; line-height: 1.45 !important; }
+   ADAPTIVE TYPOGRAPHY (clamp) — passt sich sanft an Viewport-Breite an,
+   ohne fixe Pixel-Sprünge und ohne dass Labels über ihren Container hinauswachsen.
 
-/* Touch / click targets — buttons should be at least 36px high everywhere */
-button:not(.no-min-size) { min-height: 36px; }
+   Statt einer harten Vergrößerung verwenden wir clamp(min, ideal-vw, max).
+   - Schmale Displays (~1280 px): kleinste Größe (designerisch korrekt).
+   - 21" iMac (1920 px): mittlere Größe.
+   - Sehr große Displays: leichte zusätzliche Vergrößerung, mit Hard-Cap.
+───────────────────────────────────────────────────────────────────────────── */
+.text-\[9px\]   { font-size: clamp(0.5625rem, 0.5rem  + 0.10vw, 0.75rem)    !important; }
+.text-\[10px\]  { font-size: clamp(0.625rem,  0.56rem + 0.10vw, 0.8125rem)  !important; }
+.text-\[11px\]  { font-size: clamp(0.6875rem, 0.62rem + 0.12vw, 0.875rem)   !important; }
+.text-\[12px\]  { font-size: clamp(0.75rem,   0.68rem + 0.13vw, 0.9375rem)  !important; }
+.text-\[13px\]  { font-size: clamp(0.8125rem, 0.74rem + 0.14vw, 1rem)       !important; }

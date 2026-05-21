@@ -218,9 +218,9 @@ export function AgendaView() {
           </div>
 
           {/* Client Brain right column — fluid width */}
-          <aside className="hidden w-[380px] shrink-0 flex-col border-l border-deep-charcoal/[0.06] bg-gray-100/80 lg:flex xl:w-[440px] 2xl:w-[500px]">
-            <div className="shrink-0 border-b border-deep-charcoal/[0.06] px-5 py-4">
-              <p className="text-sm font-bold uppercase tracking-[0.15em] text-deep-charcoal/60">
+          <aside className="hidden w-[340px] shrink-0 flex-col border-l border-deep-charcoal/[0.06] bg-gray-100/80 lg:flex xl:w-[380px] 2xl:w-[420px]">
+            <div className="shrink-0 border-b border-deep-charcoal/[0.06] px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-deep-charcoal/55">
                 Kundenakte
               </p>
             </div>

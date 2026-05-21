@@ -12,7 +12,7 @@ const { autoUpdater } = electronUpdaterPkg;
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import crypto from "node:crypto";
 
@@ -108,12 +108,25 @@ function startBackend() {
     ? path.join(process.resourcesPath, "app", "frontend", "dist")
     : path.join(projectRoot, "frontend", "dist");
 
+  function getAuthSecret() {
+    const userDataDir = app.getPath("userData");
+    const secretPath = path.join(userDataDir, ".auth_secret");
+    if (existsSync(secretPath)) {
+      return readFileSync(secretPath, "utf8").trim();
+    }
+    const newSecret = crypto.randomBytes(32).toString("hex");
+    writeFileSync(secretPath, newSecret, "utf8");
+    return newSecret;
+  }
+
+  const authSecret = getAuthSecret();
+
   const env = {
     ...process.env,
     PORT:          String(API_PORT),
     DATABASE_PATH: DB_PATH,
     FRONTEND_PATH: frontendPath,
-    AUTH_SECRET:   crypto.randomBytes(32).toString("hex"),
+    AUTH_SECRET:   authSecret,
     NODE_ENV:      isDev ? "development" : "production",
     ...(isDev ? {} : { SERVE_SPA: "1" }),
   };

@@ -39,6 +39,12 @@ http.interceptors.response.use(
       (typeof data?.error === "string" && data.error) ||
       (typeof data?.message === "string" && data.message) ||
       err.message;
+      
+    if (err.response?.status === 401) {
+      localStorage.removeItem("or:authToken");
+      window.location.reload();
+    }
+    
     return Promise.reject(new Error(msg || "request_failed"));
   },
 );

@@ -247,8 +247,18 @@ function setupAutoUpdater() {
 
   autoUpdater.on("update-downloaded", (info) => {
     console.log("[updater] Update heruntergeladen:", info.version);
-    // Nach Neustart automatisch installieren
-    // Optional: Dialog anzeigen
+    dialog.showMessageBox({
+      type: "info",
+      title: "Update verfügbar",
+      message: `Ein neues Update (Version ${info.version}) wurde heruntergeladen!`,
+      detail: "Bitte starte die Anwendung neu, um das Update zu installieren.",
+      buttons: ["Später", "Jetzt neu starten"],
+      defaultId: 1
+    }).then((res) => {
+      if (res.response === 1) {
+        autoUpdater.quitAndInstall();
+      }
+    });
     if (mainWindow) {
       mainWindow.webContents.send("update-downloaded", { version: info.version });
     }

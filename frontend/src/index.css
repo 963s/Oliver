@@ -201,14 +201,27 @@ input, textarea, [contenteditable="true"] {
   .luxury-field:focus { border-bottom-color: var(--editorial-pulse); }
 
   select.luxury-select {
+    /* Browser-Default-Pfeil entfernen (sonst sieht man zwei Pfeile übereinander) */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     cursor: pointer;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(42,37,32,0.45)' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
     background-size: 1rem 1rem;
     background-position: right 1rem center;
     padding-right: 2.75rem;
   }
   html.dark select.luxury-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(237,232,223,0.45)' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  }
+
+  /* Globale Lösung: alle <select> bekommen den gleichen einheitlichen Pfeil,
+     auch wenn die Klasse .luxury-select fehlt. Verhindert doppelte Pfeile überall. */
+  select:not([multiple]) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
   }
 
   input[type="datetime-local"].luxury-field::-webkit-calendar-picker-indicator,
@@ -319,3 +332,18 @@ html.dark .luxury-field { color-scheme: dark; }
 @media print {
   .no-print { display: none !important; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   GLOBAL TYPOGRAPHY BOOST — for 21" iMac & legibility
+   Many existing components use text-[10px]/text-[9px] for labels which is too
+   small on the salon display. We bump these classes here so older code
+   benefits without touching every file.
+───────────────────────────────────────────────────────────────────────────── */
+.text-\[9px\]   { font-size: 0.75rem    !important; line-height: 1.4 !important; }
+.text-\[10px\]  { font-size: 0.8125rem  !important; line-height: 1.4 !important; }
+.text-\[11px\]  { font-size: 0.875rem   !important; line-height: 1.4 !important; }
+.text-\[12px\]  { font-size: 0.9375rem  !important; line-height: 1.45 !important; }
+.text-\[13px\]  { font-size: 1rem       !important; line-height: 1.45 !important; }
+
+/* Touch / click targets — buttons should be at least 36px high everywhere */
+button:not(.no-min-size) { min-height: 36px; }

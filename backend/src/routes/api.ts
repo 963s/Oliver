@@ -58,6 +58,7 @@ import { registerHolidayRoutes } from "./holidayRoutes.js";
 import { registerCalendarRoutes } from "./calendarRoutes.js";
 import { registerReportRoutes } from "./reportRoutes.js";
 import { registerInventoryAdminRoutes } from "./inventoryRoutes.js";
+import { registerOnboardingRoutes } from "./onboardingRoutes.js";
 import { registerExportRoutes } from "./exportRoutes.js";
 import { registerClientRoutes } from "./clientRoutes.js";
 import { registerSystemRoutes } from "./systemRoutes.js";
@@ -207,6 +208,7 @@ export function registerApi(
   registerCatalogAdminRoutes(app, db);
   registerSettingsAdminRoutes(app, db);
   registerDiagnosticsRoutes(app, db);
+  registerOnboardingRoutes(app, db);
   /**
    * §15 — No HTTP routes may UPDATE or DELETE `audit_logs` or mutate `invoices`/`invoice_items`
    * except through controlled fiscal flows (checkout closure only after TSE, future storno API).

@@ -173,18 +173,18 @@ export function AgendaView() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Link
             to="/"
-            className="text-[10px] uppercase tracking-wider text-deep-charcoal/40 hover:text-deep-charcoal/70"
+            className="text-xs font-medium uppercase tracking-wider text-deep-charcoal/60 hover:text-deep-charcoal"
           >
             ← Live
           </Link>
           <Link
             to="/bookings"
-            className="text-[10px] uppercase tracking-wider text-deep-charcoal/40 hover:text-deep-charcoal/70"
+            className="editorial-pulse-fill px-4 py-2 text-xs font-semibold uppercase tracking-wider transition hover:opacity-90"
           >
-            + Termin
+            + Neuer Termin
           </Link>
         </div>
       </div>
@@ -218,9 +218,9 @@ export function AgendaView() {
           </div>
 
           {/* Client Brain right column — fluid width */}
-          <aside className="hidden w-[320px] shrink-0 flex-col border-l border-deep-charcoal/[0.06] bg-gray-100/80 lg:flex xl:w-[360px] 2xl:w-[420px]">
-            <div className="shrink-0 border-b border-deep-charcoal/[0.06] px-4 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-deep-charcoal/35">
+          <aside className="hidden w-[380px] shrink-0 flex-col border-l border-deep-charcoal/[0.06] bg-gray-100/80 lg:flex xl:w-[440px] 2xl:w-[500px]">
+            <div className="shrink-0 border-b border-deep-charcoal/[0.06] px-5 py-4">
+              <p className="text-sm font-bold uppercase tracking-[0.15em] text-deep-charcoal/60">
                 Kundenakte
               </p>
             </div>

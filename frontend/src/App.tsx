@@ -30,22 +30,48 @@ import { AdminDiagnostics } from "./pages/AdminDiagnostics";
 import { HelpHandbuch } from "./pages/HelpHandbuch";
 import { EmbeddedDesktopGate } from "./shell/EmbeddedDesktopGate";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { OnboardingWizard } from "./pages/OnboardingWizard";
+import { useState } from "react";
+import { http } from "./lib/apiClient";
 
 function AppRoutes() {
   const isPaired = useAuthStore((s) => s.isPaired);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const rehydrate = useAuthStore((s) => s.rehydrate);
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
     initAuthConnectivityListeners();
     rehydrate();
   }, [rehydrate]);
 
+  // Check first-launch onboarding once (only meaningful when no auth yet).
+  useEffect(() => {
+    if (isAuthenticated) {
+      setNeedsOnboarding(false);
+      return;
+    }
+    void http
+      .get<{ needsOnboarding: boolean }>("/api/system/setup-status")
+      .then((r) => setNeedsOnboarding(r.data.needsOnboarding))
+      .catch(() => setNeedsOnboarding(false));
+  }, [isAuthenticated]);
+
   if (!isPaired) {
     return (
       <Routes>
         <Route path="/pair" element={<PairingScreen />} />
         <Route path="*" element={<Navigate to="/pair" replace />} />
+      </Routes>
+    );
+  }
+
+  // First-launch wizard: only when DB has no staff yet.
+  if (needsOnboarding === true && !isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/onboarding" element={<OnboardingWizard />} />
+        <Route path="*" element={<Navigate to="/onboarding" replace />} />
       </Routes>
     );
   }

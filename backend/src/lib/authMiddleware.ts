@@ -6,9 +6,13 @@ function isPublicRoute(method: string, path: string): boolean {
   if (method === "GET" && path === "/api/health") return true;
   if (method === "POST" && path === "/api/auth/login") return true;
   if (method === "POST" && path === "/api/auth/pin-login") return true;
-  if (method === "GET" && path === "/api/auth/directory") return true;
+  if (method === "POST" && path === "/api/auth/select-staff") return true;
+  if (method === "GET"  && path === "/api/auth/directory") return true;
   if (method === "POST" && path === "/api/auth/pair") return true;
   if (method === "POST" && path === "/api/auth/dev-pair-browser") return true;
+  /** First-launch onboarding — reachable BEFORE any staff exists. */
+  if (method === "GET"  && path === "/api/system/setup-status") return true;
+  if (method === "POST" && path === "/api/system/initial-setup") return true;
   /** Hardware callback — no user session; tighten later with HMAC or API key if needed. */
   if (method === "POST" && path === "/api/hardware/zvt/authorization-success") return true;
   return false;

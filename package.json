@@ -1,7 +1,7 @@
 {
   "name": "oliver-roos-friseur",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "workspaces": [
     "backend",
     "frontend"
@@ -63,10 +63,6 @@
       {
         "from": "backend-bundle/package.json",
         "to": "backend/package.json"
-      },
-      {
-        "from": "backend/data/salon.db",
-        "to": "backend/data/salon.db"
       }
     ],
     "afterPack": "scripts/after-pack.mjs",

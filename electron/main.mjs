@@ -43,16 +43,8 @@ function getDbPath() {
   const userDataDir = app.getPath("userData");
   mkdirSync(userDataDir, { recursive: true });
   const targetDb = path.join(userDataDir, "salon.db");
-
-  // Beim ersten Start: vorhandene DB aus dem Bundle kopieren (Migration)
-  if (!existsSync(targetDb)) {
-    const backendDir = app.isPackaged ? path.join(process.resourcesPath, "backend") : path.join(projectRoot, "backend");
-    const bundleDb = path.join(backendDir, "data", "salon.db");
-    if (existsSync(bundleDb)) {
-      copyFileSync(bundleDb, targetDb);
-      console.log("[electron] DB migriert nach userData:", targetDb);
-    }
-  }
+  // Keine vorab gebundelte DB mehr — Drizzle migrate() erzeugt
+  // beim ersten Start ein leeres Schema aus allen Migrations.
   return targetDb;
 }
 

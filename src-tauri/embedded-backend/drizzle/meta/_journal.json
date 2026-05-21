@@ -1,0 +1,223 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1745500800000,
+      "tag": "0000_platinum_33_37",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1745618400000,
+      "tag": "0001_addendum_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1745702400000,
+      "tag": "0002_staff_pin_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1745788800000,
+      "tag": "0003_appointments_checkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1745961600000,
+      "tag": "0004_invoicing_vat_checkout",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1746048000000,
+      "tag": "0005_audit_logs_delta",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1746134400000,
+      "tag": "0006_system_settings_tse",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1746220800000,
+      "tag": "0007_invoice_zvt_checkout",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1746307200000,
+      "tag": "0008_checkout_inventory_deduct",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1746393600000,
+      "tag": "0009_low_stock_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1746476400000,
+      "tag": "0010_clients_gdpr_crm",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1746562800000,
+      "tag": "0011_scheduling_overbooking",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1746652800000,
+      "tag": "0012_advanced_scheduling_engine",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1746739200000,
+      "tag": "0013_advanced_checkout_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1746825600000,
+      "tag": "0014_storno_and_orphan_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1746912000000,
+      "tag": "0015_cash_journal_and_daily_closing",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1746998400000,
+      "tag": "0016_staff_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1747084800000,
+      "tag": "0017_vouchers_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1747171200000,
+      "tag": "0018_loyalty_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1747257600000,
+      "tag": "0019_client_history_and_formulas",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1747344000000,
+      "tag": "0020_waivers_and_hardware_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1747430400000,
+      "tag": "0021_tse_transactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1747516800000,
+      "tag": "0022_device_trust_and_pins",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1747603200000,
+      "tag": "0023_staff_weekly_schedules_and_calendar_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1747689600000,
+      "tag": "0024_appointments_deleted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1747776000000,
+      "tag": "0025_salon_service_catalog_inventory_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1747862400000,
+      "tag": "0026_salon_catalog_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1747948800000,
+      "tag": "0027_client360_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1748035200000,
+      "tag": "0028_commission_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1748121600000,
+      "tag": "0029_external_backup_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1748208000000,
+      "tag": "0030_sqlite_maintenance_settings",
+      "breakpoints": true
+    }
+  ]
+}

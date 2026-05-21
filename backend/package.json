@@ -1,0 +1,37 @@
+{
+  "name": "@oliver-roos/backend",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "chaos:test": "npm run build && node dist/scripts/chaos_tester.js",
+    "integrity:check": "npm run build && node dist/scripts/integrity_checker.js",
+    "smoke:step375": "npm run build && node dist/scripts/step375_integrity_smoke.js",
+    "audit:sweep": "npm run build && node dist/scripts/integrity_audit_sweep.js",
+    "audit:absolute": "npm run build && node dist/scripts/absolute_system_audit.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "date-holidays": "^3.27.0",
+    "drizzle-orm": "^0.38.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.0",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.22.3",
+    "typescript": "^5.6.0"
+  }
+}

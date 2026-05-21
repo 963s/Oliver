@@ -1,0 +1,117 @@
+{
+  "name": "oliver-roos-friseur",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "type": "module",
+  "main": "electron/main.mjs",
+  "author": "Oliver Roos",
+  "description": "Oliver Roos Friseur — Terminverwaltung & Lager (offline)",
+  "scripts": {
+    "dev:backend": "npm run dev -w @oliver-roos/backend",
+    "dev:frontend": "npm run dev -w @oliver-roos/frontend",
+    "electron:dev": "electron .",
+    "electron:build": "npm run build -w @oliver-roos/backend && npm run build -w @oliver-roos/frontend",
+    "postinstall": "electron-builder install-app-deps",
+    "electron:pack": "npm run electron:build && node scripts/prepare-pack.mjs && electron-builder --publish never",
+    "electron:release": "npm run electron:build && node scripts/prepare-pack.mjs && electron-builder --publish always",
+    "release:patch": "npm version patch -m \\\"Release v%s\\\" && git push --follow-tags",
+    "release:minor": "npm version minor -m \\\"Release v%s\\\" && git push --follow-tags",
+    "release:major": "npm version major -m \\\"Release v%s\\\" && git push --follow-tags"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "cross-env": "^7.0.3",
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.7"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "build": {
+    "appId": "com.oliverroos.friseur",
+    "productName": "Oliver Roos Friseur",
+    "copyright": "Copyright © Oliver Roos Frisuren",
+    "publish": {
+      "provider": "github",
+      "owner": "963s",
+      "repo": "Oliver"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "frontend/dist/**",
+      "!**/.DS_Store",
+      "!**/*.ts",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "backend-bundle/dist/",
+        "to": "backend/dist/"
+      },
+      {
+        "from": "backend-bundle/drizzle/",
+        "to": "backend/drizzle/"
+      },
+      {
+        "from": "backend-bundle/package.json",
+        "to": "backend/package.json"
+      },
+      {
+        "from": "backend/data/salon.db",
+        "to": "backend/data/salon.db"
+      }
+    ],
+    "afterPack": "scripts/after-pack.mjs",
+    "asar": false,
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.icns"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
+    "afterSign": "scripts/notarize.mjs"
+  }
+}

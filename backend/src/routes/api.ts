@@ -117,9 +117,44 @@ function defaultLocalDayBounds(): { from: number; to: number } {
   return { from: start.getTime(), to: end.getTime() };
 }
 
-function normalizeBarcode(raw?: string): string | null {
+function normalizeBarcode(raw?: string | null): string | null {
   const v = String(raw ?? "").trim();
   return v.length === 0 ? null : v;
+}
+
+/**
+ * Generate an internal EAN-13 barcode (prefix 200–299 = retailer-internal range
+ * per GS1, never collides with assigned manufacturer codes). 12 digits + check
+ * digit. Retries on rare collision against existing barcodes.
+ */
+function ean13CheckDigit(twelve: string): string {
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const d = twelve.charCodeAt(i) - 48;
+    sum += i % 2 === 0 ? d : d * 3;
+  }
+  return String((10 - (sum % 10)) % 10);
+}
+
+function generateInternalEan13(
+  db: BetterSQLite3Database<typeof schema>,
+): string {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const tail = String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, "0");
+    const twelve = `200${tail}`;
+    const code = twelve + ean13CheckDigit(twelve);
+    const [existing] = db
+      .select({ id: schema.inventoryItems.id })
+      .from(schema.inventoryItems)
+      .where(eq(schema.inventoryItems.barcodeEan, code))
+      .limit(1)
+      .all();
+    if (!existing) return code;
+  }
+  // Fall back to timestamp-seeded tail; check digit always correct.
+  const tail = String(Date.now() % 1_000_000_000).padStart(9, "0");
+  const twelve = `200${tail}`;
+  return twelve + ean13CheckDigit(twelve);
 }
 
 function auditCheckoutFailure(
@@ -1569,15 +1604,35 @@ export function registerApi(
         onHandMl?: number;
         defaultUnitMl?: number;
         minStockThresholdMl?: number | null;
+        isRetail?: boolean;
+        usageType?: "retail" | "salon" | "both";
+        referenceNetPerMlCents?: number;
+        estimateVatRateBps?: number;
       };
+      // Auto-generate EAN-13 (prefix 200 = internal use) if barcode left blank.
+      const rawEan = normalizeBarcode(body.barcodeEan);
+      const barcodeEan = rawEan ?? generateInternalEan13(db);
+      const usageType: "retail" | "salon" | "both" =
+        body.usageType === "retail" || body.usageType === "salon" || body.usageType === "both"
+          ? body.usageType
+          : body.isRetail === true
+            ? "retail"
+            : "salon";
       const values: typeof schema.inventoryItems.$inferInsert = {
         name: body.name,
-        // Empty strings are normalized to NULL, preserving UNIQUE semantics with multiple NULLs.
-        barcodeEan: normalizeBarcode(body.barcodeEan),
+        barcodeEan,
         barcodeUpc: normalizeBarcode(body.barcodeUpc),
-        onHandMl: body.onHandMl ?? 0,
-        defaultUnitMl: body.defaultUnitMl ?? 0,
+        onHandMl: Math.max(0, Math.floor(Number(body.onHandMl ?? 0))),
+        defaultUnitMl: Math.max(0, Math.floor(Number(body.defaultUnitMl ?? 0))),
+        isRetail: usageType !== "salon",
+        usageType,
       };
+      if (Number.isFinite(Number(body.referenceNetPerMlCents))) {
+        values.referenceNetPerMlCents = Math.max(0, Math.floor(Number(body.referenceNetPerMlCents)));
+      }
+      if (Number.isFinite(Number(body.estimateVatRateBps))) {
+        values.estimateVatRateBps = Math.max(0, Math.floor(Number(body.estimateVatRateBps)));
+      }
       if ("minStockThresholdMl" in body) {
         if (body.minStockThresholdMl === null) {
           values.minStockThresholdMl = null;
@@ -1607,7 +1662,9 @@ export function registerApi(
   );
 
   /**
-   * §10 — Set `min_stock_threshold_ml` (owner). Triggers resync of low_stock alert for this item.
+   * §10 — Update inventory item (owner). Supports rename, usage type change,
+   * barcode update, price/VAT, and minStockThreshold. Stock changes go through
+   * `/api/inventory/adjust` (audited). Triggers resync of low_stock alert.
    */
   app.patch(
     "/api/inventory/:id",
@@ -1617,22 +1674,6 @@ export function registerApi(
       if (!Number.isFinite(id) || id < 1) {
         res.status(400).json({ error: "bad_id" });
         return;
-      }
-      const body = req.body as { minStockThresholdMl?: number | null };
-      if (!("minStockThresholdMl" in body)) {
-        res.status(400).json({ error: "minStockThresholdMl required" });
-        return;
-      }
-      const raw = body.minStockThresholdMl;
-      let th: number | null;
-      if (raw === null || raw === undefined) {
-        th = null;
-      } else {
-        th = Math.max(0, Math.floor(Number(raw)));
-        if (!Number.isFinite(th)) {
-          res.status(400).json({ error: "minStockThresholdMl invalid" });
-          return;
-        }
       }
       const [cur] = db
         .select()
@@ -1644,8 +1685,70 @@ export function registerApi(
         res.status(404).json({ error: "not_found" });
         return;
       }
+      const body = req.body as {
+        name?: string;
+        barcodeEan?: string | null;
+        barcodeUpc?: string | null;
+        defaultUnitMl?: number;
+        minStockThresholdMl?: number | null;
+        usageType?: "retail" | "salon" | "both";
+        referenceNetPerMlCents?: number;
+        estimateVatRateBps?: number;
+      };
+      const patch: Partial<typeof schema.inventoryItems.$inferInsert> = {};
+      if (body.name !== undefined) {
+        const n = String(body.name).trim();
+        if (n.length < 1) {
+          res.status(400).json({ error: "name_required" });
+          return;
+        }
+        patch.name = n;
+      }
+      if (body.barcodeEan !== undefined) {
+        patch.barcodeEan = body.barcodeEan === null ? null : normalizeBarcode(body.barcodeEan);
+      }
+      if (body.barcodeUpc !== undefined) {
+        patch.barcodeUpc = body.barcodeUpc === null ? null : normalizeBarcode(body.barcodeUpc);
+      }
+      if (body.defaultUnitMl !== undefined) {
+        const v = Math.max(0, Math.floor(Number(body.defaultUnitMl)));
+        if (Number.isFinite(v)) patch.defaultUnitMl = v;
+      }
+      if (body.usageType !== undefined) {
+        if (body.usageType !== "retail" && body.usageType !== "salon" && body.usageType !== "both") {
+          res.status(400).json({ error: "usageType_invalid" });
+          return;
+        }
+        patch.usageType = body.usageType;
+        patch.isRetail = body.usageType !== "salon";
+      }
+      if (body.referenceNetPerMlCents !== undefined) {
+        const v = Math.max(0, Math.floor(Number(body.referenceNetPerMlCents)));
+        if (Number.isFinite(v)) patch.referenceNetPerMlCents = v;
+      }
+      if (body.estimateVatRateBps !== undefined) {
+        const v = Math.max(0, Math.floor(Number(body.estimateVatRateBps)));
+        if (Number.isFinite(v)) patch.estimateVatRateBps = v;
+      }
+      if ("minStockThresholdMl" in body) {
+        const raw = body.minStockThresholdMl;
+        if (raw === null || raw === undefined) {
+          patch.minStockThresholdMl = null;
+        } else {
+          const t = Math.max(0, Math.floor(Number(raw)));
+          if (!Number.isFinite(t)) {
+            res.status(400).json({ error: "minStockThresholdMl invalid" });
+            return;
+          }
+          patch.minStockThresholdMl = t;
+        }
+      }
+      if (Object.keys(patch).length === 0) {
+        res.json(cur);
+        return;
+      }
       db.update(schema.inventoryItems)
-        .set({ minStockThresholdMl: th })
+        .set(patch)
         .where(eq(schema.inventoryItems.id, id))
         .run();
       syncLowStockAlertForItem(db, id);
@@ -4276,6 +4379,11 @@ export function registerApi(
         lastName: string;
         email?: string | null;
         phone?: string | null;
+        street?: string | null;
+        houseNumber?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        country?: string | null;
         preferences?: Record<string, unknown> | null;
         gdprConsent?: boolean;
         gdprConsentDate?: string | number | null;
@@ -4296,14 +4404,18 @@ export function registerApi(
         return;
       }
       const name = buildClientDisplayName(firstName, lastName);
-      const email =
-        b.email == null || String(b.email).trim() === ""
-          ? null
-          : String(b.email).trim();
-      const phone =
-        b.phone == null || String(b.phone).trim() === ""
-          ? null
-          : String(b.phone).trim();
+      const blankToNull = (v: unknown): string | null => {
+        if (v == null) return null;
+        const s = String(v).trim();
+        return s === "" ? null : s;
+      };
+      const email = blankToNull(b.email);
+      const phone = blankToNull(b.phone);
+      const street = blankToNull(b.street);
+      const houseNumber = blankToNull(b.houseNumber);
+      const postalCode = blankToNull(b.postalCode);
+      const city = blankToNull(b.city);
+      const country = blankToNull(b.country);
       let consentAt = new Date();
       if (b.gdprConsentDate != null) {
         const t = parseInstant(b.gdprConsentDate);
@@ -4321,6 +4433,11 @@ export function registerApi(
           lastName,
           email,
           phone,
+          street,
+          houseNumber,
+          postalCode,
+          city,
+          country,
           gdprConsent: true,
           gdprConsentDate: consentAt,
           preferences: prefs,
@@ -4340,6 +4457,97 @@ export function registerApi(
         payload: { source: "api_post" },
       });
       res.json(row);
+    }),
+  );
+
+  /**
+   * §12 — Update client profile (PII): name, contact, address. GDPR-aware.
+   * Anonymized clients cannot be re-personalized (409 client_anonymized).
+   */
+  app.patch(
+    "/api/clients/:id/profile",
+    asyncRoute((req, res) => {
+      const c = getStaffContext(req);
+      const id = Number.parseInt(req.params.id ?? "", 10);
+      if (!Number.isFinite(id) || id < 1) {
+        res.status(400).json({ error: "bad_id" });
+        return;
+      }
+      const [cur] = db
+        .select()
+        .from(schema.clients)
+        .where(eq(schema.clients.id, id))
+        .limit(1)
+        .all();
+      if (!cur) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      if (cur.anonymizedAt != null) {
+        res.status(409).json({ error: "client_anonymized" });
+        return;
+      }
+      const b = req.body as {
+        firstName?: string;
+        lastName?: string;
+        email?: string | null;
+        phone?: string | null;
+        street?: string | null;
+        houseNumber?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        country?: string | null;
+      };
+      const blankToNull = (v: unknown): string | null => {
+        if (v == null) return null;
+        const s = String(v).trim();
+        return s === "" ? null : s;
+      };
+      const patch: Partial<typeof schema.clients.$inferInsert> = {};
+      if (b.firstName !== undefined) {
+        const f = String(b.firstName).trim();
+        if (f.length < 1) {
+          res.status(400).json({ error: "firstName_required" });
+          return;
+        }
+        patch.firstName = f;
+      }
+      if (b.lastName !== undefined) patch.lastName = String(b.lastName).trim();
+      if (patch.firstName !== undefined || patch.lastName !== undefined) {
+        patch.name = buildClientDisplayName(
+          patch.firstName ?? cur.firstName,
+          patch.lastName ?? cur.lastName,
+        );
+      }
+      if (b.email !== undefined) patch.email = blankToNull(b.email);
+      if (b.phone !== undefined) patch.phone = blankToNull(b.phone);
+      if (b.street !== undefined) patch.street = blankToNull(b.street);
+      if (b.houseNumber !== undefined) patch.houseNumber = blankToNull(b.houseNumber);
+      if (b.postalCode !== undefined) patch.postalCode = blankToNull(b.postalCode);
+      if (b.city !== undefined) patch.city = blankToNull(b.city);
+      if (b.country !== undefined) patch.country = blankToNull(b.country);
+      if (Object.keys(patch).length === 0) {
+        res.json(cur);
+        return;
+      }
+      db.update(schema.clients)
+        .set(patch)
+        .where(eq(schema.clients.id, id))
+        .run();
+      const [out] = db
+        .select()
+        .from(schema.clients)
+        .where(eq(schema.clients.id, id))
+        .limit(1)
+        .all();
+      writeAudit(db, {
+        entity: "clients",
+        entityId: id,
+        action: "client_profile_updated",
+        staffId: c.staffId,
+        payload: { fields: Object.keys(patch) },
+      });
+      res.json(out ?? cur);
     }),
   );
 

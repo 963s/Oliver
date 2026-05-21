@@ -15,7 +15,13 @@ declare global {
         projectRoot: string;
         databasePath: string;
         isDev: boolean;
+        version: string;
       }>;
+      checkForUpdate: () => Promise<{ version: string; url: string } | null>;
+      openUpdatePage: (url: string) => Promise<void>;
+      onUpdateAvailable: (
+        cb: (info: { version: string; currentVersion: string; url: string; notes: string }) => void,
+      ) => () => void;
     };
   }
 }

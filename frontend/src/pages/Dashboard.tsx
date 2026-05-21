@@ -155,9 +155,9 @@ export function DashboardLayout() {
         aria-hidden
       />
 
-      {/* ── Slim Sidebar (220px) ── */}
+      {/* ── Sidebar (responsive: 220 → 280 on large displays) ── */}
       <aside
-        className="relative z-[1] flex w-[220px] shrink-0 flex-col border-r border-deep-charcoal/[0.06] bg-white/95"
+        className="relative z-[1] flex w-[220px] shrink-0 flex-col border-r border-deep-charcoal/[0.06] bg-white/95 xl:w-[260px] 2xl:w-[300px]"
         aria-label="Hauptnavigation"
       >
         {/* Brand header */}

@@ -29,6 +29,7 @@ import { RequireSalonManagement } from "./components/auth/RequireSalonManagement
 import { AdminDiagnostics } from "./pages/AdminDiagnostics";
 import { HelpHandbuch } from "./pages/HelpHandbuch";
 import { EmbeddedDesktopGate } from "./shell/EmbeddedDesktopGate";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 function AppRoutes() {
   const isPaired = useAuthStore((s) => s.isPaired);
@@ -144,6 +145,7 @@ export default function App() {
         </EmbeddedDesktopGate>
         <ToastStack />
         <PrintPaperFX />
+        <UpdateBanner />
       </BrowserRouter>
     </ErrorBoundary>
   );

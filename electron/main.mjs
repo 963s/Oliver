@@ -7,14 +7,16 @@
  */
 
 import { app, BrowserWindow, Menu, ipcMain, shell, dialog, Tray, nativeImage } from "electron";
-import electronUpdaterPkg from "electron-updater";
-const { autoUpdater } = electronUpdaterPkg;
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import crypto from "node:crypto";
+
+const UPDATE_REPO = { owner: "963s", repo: "Oliver" };
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -212,6 +214,7 @@ async function createWindow() {
       contextIsolation:  true,
       nodeIntegration:   false,
       devTools:          isDev, // DevTools NUR im Dev-Modus
+      preload:           path.join(__dirname, "preload.mjs"),
     },
   });
 
@@ -247,46 +250,81 @@ function setupMenu() {
   Menu.setApplicationMenu(null);
 }
 
-/* ── Auto-Updater (Production) ───────────────────────────────────────────── */
+/* ── Update Checker (Production) ─────────────────────────────────────────
+   App ist nicht Apple-signiert → electron-updater kann auf macOS nicht
+   installieren (Gatekeeper). Stattdessen: GitHub-Release-Check + Hinweis
+   mit Link zum manuellen Download. */
+
+function compareSemver(a, b) {
+  const pa = a.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1;
+    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1;
+  }
+  return 0;
+}
+
+function fetchLatestRelease() {
+  return new Promise((resolve, reject) => {
+    const req = https.get({
+      hostname: "api.github.com",
+      path: `/repos/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`,
+      headers: {
+        "User-Agent": "OliverRoosPOS-Updater",
+        "Accept": "application/vnd.github+json",
+      },
+      timeout: 10_000,
+    }, (res) => {
+      let data = "";
+      res.on("data", (c) => { data += c; });
+      res.on("end", () => {
+        if (res.statusCode === 200) {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject(e); }
+        } else {
+          reject(new Error(`GitHub API ${res.statusCode}`));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(new Error("Timeout")); });
+  });
+}
+
+let lastNotifiedVersion = null;
+
+async function checkForUpdate(silent = true) {
+  try {
+    const rel = await fetchLatestRelease();
+    if (rel.draft || !rel.tag_name) return null;
+    const latest = String(rel.tag_name).replace(/^v/, "");
+    const current = app.getVersion();
+    if (compareSemver(latest, current) <= 0) return null;
+    if (lastNotifiedVersion === latest) return null;
+    lastNotifiedVersion = latest;
+
+    const releaseUrl = rel.html_url || `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update-available", {
+        version: latest,
+        currentVersion: current,
+        url: releaseUrl,
+        notes: rel.body ?? "",
+      });
+    }
+    console.log(`[updater] Neue Version verfügbar: ${latest} (aktuell: ${current})`);
+    return { version: latest, url: releaseUrl };
+  } catch (err) {
+    if (!silent) console.error("[updater] Prüfung fehlgeschlagen:", err.message);
+    return null;
+  }
+}
 
 function setupAutoUpdater() {
   if (isDev) return;
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  autoUpdater.on("update-available", (info) => {
-    console.log("[updater] Update verfügbar:", info.version);
-    // Stilles Herunterladen — kein Dialog, kein Unterbrechen
-  });
-
-  autoUpdater.on("update-downloaded", (info) => {
-    console.log("[updater] Update heruntergeladen:", info.version);
-    dialog.showMessageBox({
-      type: "info",
-      title: "Update verfügbar",
-      message: `Ein neues Update (Version ${info.version}) wurde heruntergeladen!`,
-      detail: "Bitte starte die Anwendung neu, um das Update zu installieren.",
-      buttons: ["Später", "Jetzt neu starten"],
-      defaultId: 1
-    }).then((res) => {
-      if (res.response === 1) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-    if (mainWindow) {
-      mainWindow.webContents.send("update-downloaded", { version: info.version });
-    }
-  });
-
-  autoUpdater.on("error", (err) => {
-    console.error("[updater] Fehler:", err.message);
-    // Fehler still ignorieren — App funktioniert trotzdem
-  });
-
-  // Beim Start prüfen, dann alle 4 Stunden
-  void autoUpdater.checkForUpdates().catch(() => {});
-  setInterval(() => { void autoUpdater.checkForUpdates().catch(() => {}); }, 4 * 60 * 60 * 1000);
+  setTimeout(() => { void checkForUpdate(); }, 8_000);
+  setInterval(() => { void checkForUpdate(); }, UPDATE_CHECK_INTERVAL_MS);
 }
 
 /* ── App lifecycle ───────────────────────────────────────────────────────── */
@@ -349,7 +387,14 @@ ipcMain.handle("or:getPaths", () => ({
   version: app.getVersion(),
 }));
 
-// Vom Frontend ausgelöster Neustart nach Update
-ipcMain.handle("or:installUpdate", () => {
-  autoUpdater.quitAndInstall(false, true);
+// Frontend kann manuellen Update-Check anstoßen
+ipcMain.handle("or:checkForUpdate", async () => {
+  return await checkForUpdate(false);
+});
+
+// Frontend öffnet die Release-Seite im Browser für manuellen Download
+ipcMain.handle("or:openUpdatePage", (_e, url) => {
+  if (typeof url === "string" && url.startsWith("https://github.com/")) {
+    void shell.openExternal(url);
+  }
 });

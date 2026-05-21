@@ -2,12 +2,16 @@ import { useState } from "react";
 import { MotionModal } from "../organisms/MotionModal";
 import { apiPost } from "../../api";
 
+type UsageType = "retail" | "salon" | "both";
+
 type InventoryItem = {
   id: number;
   name: string;
   defaultUnitMl: number;
   onHandMl: number;
   isRetail: boolean;
+  usageType: UsageType;
+  barcodeEan: string | null;
 };
 
 type Props = {
@@ -22,7 +26,7 @@ const emptyForm = {
   onHandMl:      "0",
   pricePerMlEur: "",
   barcodeEan:    "",
-  isRetail:      false,
+  usageType:     "salon" as UsageType,
   vatRateBps:    "1900",
 };
 
@@ -33,12 +37,7 @@ export function AddProductModal({ open, onClose, onCreated }: Props) {
 
   function field(k: keyof typeof emptyForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((f) => ({
-        ...f,
-        [k]: e.target.type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : e.target.value,
-      }));
+      setForm((f) => ({ ...f, [k]: e.target.value }));
   }
 
   function reset() { setForm(emptyForm); setError(null); }
@@ -57,7 +56,7 @@ export function AddProductModal({ open, onClose, onCreated }: Props) {
         onHandMl:                Math.max(0, parseInt(form.onHandMl, 10) || 0),
         referenceNetPerMlCents:  Math.round(parseFloat(form.pricePerMlEur || "0") * 100),
         estimateVatRateBps:      parseInt(form.vatRateBps, 10),
-        isRetail:                form.isRetail,
+        usageType:               form.usageType,
         barcodeEan:              form.barcodeEan.trim() || null,
       });
       onCreated?.(item);
@@ -183,30 +182,33 @@ export function AddProductModal({ open, onClose, onCreated }: Props) {
           {/* Barcode */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="apr-barcode" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
-              Barcode EAN (optional)
+              Barcode EAN (optional — bei leerem Feld wird automatisch generiert)
             </label>
             <input
               id="apr-barcode"
               value={form.barcodeEan}
               onChange={field("barcodeEan")}
-              placeholder="4000123456789"
+              placeholder="leer lassen für Auto-Generierung"
               className="luxury-field w-full font-mono"
             />
           </div>
 
-          {/* Retail toggle */}
-          <label htmlFor="apr-retail" className="flex cursor-pointer items-center gap-3">
-            <input
-              id="apr-retail"
-              type="checkbox"
-              checked={form.isRetail}
-              onChange={field("isRetail")}
-              className="h-4 w-4 accent-champagne-gold"
-            />
-            <span className="text-[11px] font-light uppercase tracking-[0.14em] text-deep-charcoal/60">
-              Verkaufsartikel (Retail)
-            </span>
-          </label>
+          {/* Usage type — 3 options */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="apr-usage" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+              Verwendung *
+            </label>
+            <select
+              id="apr-usage"
+              value={form.usageType}
+              onChange={field("usageType")}
+              className="luxury-field luxury-select w-full"
+            >
+              <option value="salon">Salon-Verbrauch (intern)</option>
+              <option value="retail">Verkaufsartikel (Kunde)</option>
+              <option value="both">Beides (Salon + Verkauf)</option>
+            </select>
+          </div>
 
           {/* Error */}
           {error && (

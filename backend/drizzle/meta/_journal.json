@@ -225,6 +225,13 @@
       "when": 1779373508911,
       "tag": "0031_salty_hemingway",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1779915600000,
+      "tag": "0032_address_and_product_usage",
+      "breakpoints": true
     }
   ]
 }

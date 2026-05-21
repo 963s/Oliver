@@ -17,7 +17,18 @@ type Props = {
   onCreated?: (client: NewClient) => void;
 };
 
-const emptyForm = { firstName: "", lastName: "", phone: "", email: "", gdprConsent: false };
+const emptyForm = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  email: "",
+  street: "",
+  houseNumber: "",
+  postalCode: "",
+  city: "",
+  country: "",
+  gdprConsent: false,
+};
 
 export function AddClientModal({ open, onClose, onCreated }: Props) {
   const [form, setForm] = useState(emptyForm);
@@ -42,10 +53,15 @@ export function AddClientModal({ open, onClose, onCreated }: Props) {
     setError(null);
     try {
       const client = await apiPost<NewClient>("/api/clients", {
-        firstName: form.firstName.trim(),
-        lastName:  form.lastName.trim(),
-        phone:     form.phone.trim()  || null,
-        email:     form.email.trim()  || null,
+        firstName:   form.firstName.trim(),
+        lastName:    form.lastName.trim(),
+        phone:       form.phone.trim()       || null,
+        email:       form.email.trim()       || null,
+        street:      form.street.trim()      || null,
+        houseNumber: form.houseNumber.trim() || null,
+        postalCode:  form.postalCode.trim()  || null,
+        city:        form.city.trim()        || null,
+        country:     form.country.trim()     || null,
         gdprConsent: true,
       });
       onCreated?.(client);
@@ -145,6 +161,77 @@ export function AddClientModal({ open, onClose, onCreated }: Props) {
               value={form.email}
               onChange={field("email")}
               placeholder="maria@beispiel.de"
+              className="luxury-field w-full"
+            />
+          </div>
+
+          {/* Address — Street + House number */}
+          <div className="grid grid-cols-[2fr_1fr] gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="acl-street" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+                Straße
+              </label>
+              <input
+                id="acl-street"
+                value={form.street}
+                onChange={field("street")}
+                placeholder="Musterstraße"
+                className="luxury-field w-full"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="acl-houseNumber" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+                Nr.
+              </label>
+              <input
+                id="acl-houseNumber"
+                value={form.houseNumber}
+                onChange={field("houseNumber")}
+                placeholder="12a"
+                className="luxury-field w-full"
+              />
+            </div>
+          </div>
+
+          {/* Address — Postal code + City */}
+          <div className="grid grid-cols-[1fr_2fr] gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="acl-postalCode" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+                PLZ
+              </label>
+              <input
+                id="acl-postalCode"
+                value={form.postalCode}
+                onChange={field("postalCode")}
+                placeholder="10115"
+                className="luxury-field w-full"
+                maxLength={10}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="acl-city" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+                Stadt
+              </label>
+              <input
+                id="acl-city"
+                value={form.city}
+                onChange={field("city")}
+                placeholder="Berlin"
+                className="luxury-field w-full"
+              />
+            </div>
+          </div>
+
+          {/* Address — Country */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="acl-country" className="text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/50">
+              Land
+            </label>
+            <input
+              id="acl-country"
+              value={form.country}
+              onChange={field("country")}
+              placeholder="Deutschland"
               className="luxury-field w-full"
             />
           </div>

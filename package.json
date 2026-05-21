@@ -1,7 +1,7 @@
 {
   "name": "oliver-roos-friseur",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.1.0",
   "workspaces": [
     "backend",
     "frontend"
@@ -28,9 +28,7 @@
     "electron": "^32.2.0",
     "electron-builder": "^25.1.7"
   },
-  "dependencies": {
-    "electron-updater": "^6.3.9"
-  },
+  "dependencies": {},
   "build": {
     "appId": "com.oliverroos.friseur",
     "productName": "Oliver Roos Friseur",

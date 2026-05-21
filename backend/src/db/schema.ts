@@ -74,6 +74,12 @@ export const clients = sqliteTable("clients", {
   preferences: text("preferences"),
   /** Set when PII was cleared (right to erasure / Art. 17 DSGVO). */
   anonymizedAt: integer("anonymized_at", { mode: "timestamp_ms" }),
+  /** Postal address (optional, GDPR-relevant — included in anonymize). */
+  street: text("street"),
+  houseNumber: text("house_number"),
+  postalCode: text("postal_code"),
+  city: text("city"),
+  country: text("country"),
   /** Last professional patch / allergy test (Epikutantest) — Client 360 safety. */
   patchTestAt: integer("patch_test_at", { mode: "timestamp_ms" }),
   /** Bewirtung / silent luxury preferences (free text). */
@@ -370,6 +376,13 @@ export const inventoryItems = sqliteTable(
     isRetail: integer("is_retail", { mode: "boolean" })
       .notNull()
       .default(false),
+    /**
+     * Usage type — supersedes `isRetail` (kept for legacy). Values:
+     *  - 'retail'  : sold to customers (stock may go negative at checkout)
+     *  - 'salon'   : internal salon use only (negative blocks close per KassenSichV)
+     *  - 'both'    : both retail and salon use
+     */
+    usageType: text("usage_type").$type<"retail" | "salon" | "both">().notNull().default("salon"),
     /** Whether the product is currently active and visible in the inventory list. */
     active: integer("active", { mode: "boolean" })
       .notNull()

@@ -11,7 +11,7 @@ export function FiscalHealthBanner() {
   }
   return (
     <div
-      className="flex w-full items-center justify-center border-t-2 border-[#7f1d1d] bg-gray-50/95 px-4 py-2.5 text-sm font-light tracking-[0.16em] text-[#f87171]/88 backdrop-blur-xl sm:text-[13px]"
+      className="flex w-full items-center justify-center border-t-2 border-[#7f1d1d] bg-gray-50/95 px-4 py-2.5 text-sm font-light tracking-[0.16em] text-[#f87171]/88  sm:text-[13px]"
       role="alert"
     >
       <span className="text-center uppercase leading-relaxed" lang="de">

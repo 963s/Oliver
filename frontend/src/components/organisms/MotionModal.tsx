@@ -39,7 +39,7 @@ function useSheetBreakpoint(): boolean {
 
 /**
  * Universal overlay: bottom sheet on narrow/iPad, scale+spring on desktop.
- * Backdrop: backdrop-blur-md + dark tint; glass panel optional via panelClassName.
+ * Backdrop:  + dark tint; glass panel optional via panelClassName.
  */
 export function MotionModal({
   open,
@@ -96,7 +96,7 @@ export function MotionModal({
           <motion.button
             type="button"
             aria-label="Schließen"
-            className="absolute inset-0 z-0 bg-gray-100/80 backdrop-blur-2xl"
+            className="absolute inset-0 z-0 bg-gray-100/80 "
             variants={backdropVariants}
             initial="hidden"
             animate="show"

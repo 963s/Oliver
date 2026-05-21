@@ -91,6 +91,23 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
+/* ── Screen Scaling (21-inch+ & Retina) ─────────────────────────────────── */
+@media (min-width: 1500px) {
+  html {
+    font-size: 19px;
+  }
+}
+@media (min-width: 1900px) {
+  html {
+    font-size: 22px;
+  }
+}
+@media (min-width: 2500px) {
+  html {
+    font-size: 28px;
+  }
+}
+
 /* ── Scrollbar — light mode ───────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;

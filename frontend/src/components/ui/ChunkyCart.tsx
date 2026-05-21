@@ -81,7 +81,7 @@ export function ChunkyCart({ sessionId, onOpenCheckout }: ChunkyCartProps) {
         ))}
       </div>
 
-      <div className="sticky bottom-0 z-10 border-t border-deep-charcoal/10 bg-gray-50/95 p-6 backdrop-blur-md">
+      <div className="sticky bottom-0 z-10 border-t border-deep-charcoal/10 bg-gray-50/95 p-6 ">
         <p className="mb-4 text-center text-xl text-deep-charcoal/70">
           Summe: <span className="font-light text-deep-charcoal">{formatEur(subtotalCents)}</span>
         </p>

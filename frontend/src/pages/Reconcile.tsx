@@ -92,7 +92,7 @@ export function Reconcile() {
             rows.map((o) => (
               <li
                 key={o.id}
-                className={`rounded-2xl border p-6 shadow-[0_0_32px_rgba(212,175,55,0.06)] backdrop-blur-md ${
+                className={`rounded-2xl border p-6 shadow-[0_0_32px_rgba(212,175,55,0.06)]  ${
                   o.status === "open"
                     ? "border-red-400/45 bg-red-50/45"
                     : "border-deep-charcoal/10 bg-gray-200/70"
@@ -108,7 +108,7 @@ export function Reconcile() {
                   </div>
                   <button
                     type="button"
-                    className="min-h-[56px] shrink-0 rounded-2xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-6 text-[11px] font-light uppercase tracking-[0.2em] text-editorial-pulse backdrop-blur-md transition hover:bg-[var(--editorial-pulse-dim)]/60"
+                    className="min-h-[56px] shrink-0 rounded-2xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-6 text-[11px] font-light uppercase tracking-[0.2em] text-editorial-pulse  transition hover:bg-[var(--editorial-pulse-dim)]/60"
                     onClick={() => match(o.id)}
                   >
                     An Session {session} binden

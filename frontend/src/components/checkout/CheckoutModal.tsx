@@ -380,7 +380,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
             {printMsg && <p className="text-sm text-deep-charcoal/60">{printMsg}</p>}
             <button
               type="button"
-              className="min-h-12 min-w-[220px] rounded-2xl border border-deep-charcoal/14 bg-transparent px-5 text-[11px] font-light uppercase tracking-[0.24em] text-deep-charcoal/85 backdrop-blur-md"
+              className="min-h-12 min-w-[220px] rounded-2xl border border-deep-charcoal/14 bg-transparent px-5 text-[11px] font-light uppercase tracking-[0.24em] text-deep-charcoal/85 "
               onClick={() => {
                 onClose();
                 setCompletedInvoiceId(null);
@@ -431,7 +431,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
           <h3 id="checkout-title" className="mt-1 font-heading text-3xl font-bold tracking-tight">
             Zahlung
           </h3>
-          <div className="mb-6 mt-6 rounded-2xl border border-deep-charcoal/10 bg-gray-200/45 p-6 text-lg shadow-[0_0_32px_rgba(212,175,55,0.05)] backdrop-blur-xl">
+          <div className="mb-6 mt-6 rounded-2xl border border-deep-charcoal/10 bg-gray-200/45 p-6 text-lg shadow-[0_0_32px_rgba(212,175,55,0.05)] ">
             <div className="flex justify-between gap-3 text-sm text-deep-charcoal/45">
               <span>Erfasst (Zeilen)</span>
               <span className="font-mono text-lg font-semibold tabular-nums text-deep-charcoal">
@@ -453,7 +453,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
           <div className="mb-6 flex flex-wrap gap-4">
             <button
               type="button"
-              className="min-h-[56px] min-w-[160px] flex-1 rounded-2xl border border-deep-charcoal/14 bg-transparent px-6 py-4 text-[11px] font-light uppercase tracking-[0.24em] text-deep-charcoal shadow-[0_0_28px_rgba(212,175,55,0.06)] backdrop-blur-md"
+              className="min-h-[56px] min-w-[160px] flex-1 rounded-2xl border border-deep-charcoal/14 bg-transparent px-6 py-4 text-[11px] font-light uppercase tracking-[0.24em] text-deep-charcoal shadow-[0_0_28px_rgba(212,175,55,0.06)] "
               onClick={() => applyFull("cash")}
               disabled={isSubmitting || zvtInFlight || remainingCents <= 0}
             >
@@ -461,7 +461,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
             </button>
             <button
               type="button"
-              className="min-h-[56px] min-w-[160px] flex-1 rounded-2xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-6 py-4 text-[11px] font-light uppercase tracking-[0.24em] text-editorial-pulse shadow-[0_0_28px_rgba(56,189,248,0.12)] backdrop-blur-md"
+              className="min-h-[56px] min-w-[160px] flex-1 rounded-2xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-6 py-4 text-[11px] font-light uppercase tracking-[0.24em] text-editorial-pulse shadow-[0_0_28px_rgba(56,189,248,0.12)] "
               onClick={() => applyFull("card")}
               disabled={isSubmitting || zvtInFlight || remainingCents <= 0}
             >
@@ -500,7 +500,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
               </label>
               <input
                 id="partial-eur"
-                className="luxury-field min-h-12 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-3 text-deep-charcoal backdrop-blur-xl"
+                className="luxury-field min-h-12 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-3 text-deep-charcoal "
                 type="number"
                 min={0.01}
                 step={0.5}
@@ -512,7 +512,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
             </div>
             <button
               type="button"
-                className="min-h-12 rounded-2xl border border-deep-charcoal/14 bg-transparent px-4 text-[11px] font-light uppercase tracking-[0.2em] text-deep-charcoal backdrop-blur-md"
+                className="min-h-12 rounded-2xl border border-deep-charcoal/14 bg-transparent px-4 text-[11px] font-light uppercase tracking-[0.2em] text-deep-charcoal "
               disabled={isSubmitting || zvtInFlight || remainingCents <= 0}
               onClick={() => {
                 const n = Number.parseFloat(String(partialEur).replace(",", "."));
@@ -577,7 +577,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
             </label>
             {tipOn && (
               <input
-                className="ml-2 w-32 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-3 py-2 text-right text-lg text-deep-charcoal backdrop-blur-xl"
+                className="ml-2 w-32 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-3 py-2 text-right text-lg text-deep-charcoal "
                 type="number"
                 min={0}
                 step={0.5}
@@ -600,7 +600,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-deep-charcoal/40">Gutschein</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
-                className="luxury-field min-h-12 flex-1 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-3 font-mono text-deep-charcoal backdrop-blur-xl"
+                className="luxury-field min-h-12 flex-1 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-3 font-mono text-deep-charcoal "
                 value={voucherCodeInput}
                 disabled={isSubmitting || zvtInFlight}
                 onChange={(e) => {
@@ -672,7 +672,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
           <div className="mt-auto flex flex-wrap gap-4 pt-8">
             <button
               type="button"
-              className="min-h-[56px] min-w-[140px] flex-1 rounded-2xl border border-deep-charcoal/15 bg-gray-100/60 px-6 text-deep-charcoal/80 backdrop-blur-md"
+              className="min-h-[56px] min-w-[140px] flex-1 rounded-2xl border border-deep-charcoal/15 bg-gray-100/60 px-6 text-deep-charcoal/80 "
               onClick={() => {
                 cancelZvtOrCheckout();
                 onClose();

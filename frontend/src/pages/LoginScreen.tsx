@@ -105,7 +105,7 @@ export function LoginScreen() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,var(--editorial-pulse-dim),transparent_55%)]"
         aria-hidden
       />
-      <div className="relative z-[1] w-full max-w-md border border-deep-charcoal/[0.08] bg-gray-100/90 p-10 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+      <div className="relative z-[1] w-full max-w-md border border-deep-charcoal/[0.08] bg-gray-100/90 p-10 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.85)] ">
         <h1 className="font-editorial-display text-4xl font-normal uppercase tracking-[0.22em] text-deep-charcoal">Studio</h1>
         <p className="mt-6 max-w-[16rem] text-[11px] font-light uppercase leading-loose tracking-[0.45em] text-deep-charcoal/40">
           Oliver Roos Frisuren

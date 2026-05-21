@@ -230,6 +230,8 @@ async function createWindow() {
     mainWindow = null;
   });
 
+  mainWindow.maximize();
+
   await mainWindow.loadURL(winUrl);
 
   // DevTools nur im Dev-Modus

@@ -348,7 +348,7 @@ export function AgendaView() {
       {/* Early check-in confirm dialog */}
       {confirmEarly && (
         <div
-          className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-400/70 p-4 backdrop-blur-lg"
+          className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-400/70 p-4 "
           role="dialog"
           aria-modal="true"
           aria-labelledby="early-h1"

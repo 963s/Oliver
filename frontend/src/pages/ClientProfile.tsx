@@ -141,7 +141,7 @@ export function ClientProfile() {
     morphAppointmentId != null && !prefersReducedMotion ? `agenda-apt-${morphAppointmentId}` : undefined;
 
   return (
-    <div className="fixed inset-0 z-[260] flex justify-end bg-gray-100/60 p-0 backdrop-blur-2xl sm:p-2">
+    <div className="fixed inset-0 z-[260] flex justify-end bg-gray-100/60 p-0  sm:p-2">
       <motion.aside
         layoutId={morphLayoutId}
         transition={luxurySpring}
@@ -151,7 +151,7 @@ export function ClientProfile() {
             "0 0 0 1px rgba(212,175,55,0.06), 0 24px 64px -12px rgba(0,0,0,0.55), 0 12px 40px -8px rgba(212,175,55,0.06)",
         }}
       >
-        <header className="sticky top-0 z-10 border-b border-brushed-chrome bg-gray-100/95 p-4 backdrop-blur">
+        <header className="sticky top-0 z-10 border-b border-brushed-chrome bg-gray-100/95 p-4 ">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-2xl font-heading font-bold">{displayName}</h2>

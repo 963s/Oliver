@@ -153,7 +153,7 @@ export function WalkInView() {
               <motion.li
                 key={m.id}
                 variants={rowVariants}
-                className="flex min-h-touch flex-wrap items-center justify-between gap-3 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-4 shadow-[0_0_40px_rgba(212,175,55,0.06)] backdrop-blur-2xl"
+                className="flex min-h-touch flex-wrap items-center justify-between gap-3 rounded-2xl border border-deep-charcoal/10 bg-gray-200/50 px-4 py-4 shadow-[0_0_40px_rgba(212,175,55,0.06)] "
               >
                 <div>
                   <p className="text-lg font-bold text-deep-charcoal">{m.name}</p>
@@ -161,7 +161,7 @@ export function WalkInView() {
                 </div>
                 <button
                   type="button"
-                  className="min-h-touch rounded-2xl border border-deep-charcoal/15 bg-gray-200/50 px-5 text-sm font-semibold text-deep-charcoal backdrop-blur-md"
+                  className="min-h-touch rounded-2xl border border-deep-charcoal/15 bg-gray-200/50 px-5 text-sm font-semibold text-deep-charcoal "
                   onClick={() => openClientProfile(m.id)}
                 >
                   Kundenakte

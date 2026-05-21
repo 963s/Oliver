@@ -354,7 +354,7 @@ export function MiniBookingModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="mini-book-h1"
-        className="fixed z-[335] w-[min(96vw,460px)] overflow-hidden border border-deep-charcoal/10 bg-canvas-white text-deep-charcoal shadow-[0_24px_64px_-16px_rgba(0,0,0,0.18)] backdrop-blur-2xl"
+        className="fixed z-[335] w-[min(96vw,460px)] overflow-hidden border border-deep-charcoal/10 bg-canvas-white text-deep-charcoal shadow-[0_24px_64px_-16px_rgba(0,0,0,0.18)] "
         style={{ top: popoverPos.top, left: popoverPos.left }}
         initial={{ opacity: 0, y: 10, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -131,7 +131,7 @@ export function DailyClosing() {
             </p>
             {blockedByOpenSessions ? (
               <div
-                className="relative mt-6 overflow-hidden border border-red-400/45 bg-red-50/55 px-6 py-8 text-center backdrop-blur-xl"
+                className="relative mt-6 overflow-hidden border border-red-400/45 bg-red-50/55 px-6 py-8 text-center "
                 role="alert"
               >
                 <div
@@ -145,7 +145,7 @@ export function DailyClosing() {
                   <p className="mt-4 text-sm font-light uppercase tracking-[0.2em] text-[#fecaca]/90">
                     {openSessions.length} offene Session(s) — bitte zuerst an der Kasse abschließen.
                   </p>
-                  <ul className="mt-5 space-y-3 border border-[#7f1d1d]/30 bg-[#1b0c10]/45 px-4 py-4 text-left text-sm text-[#fecaca]/90 backdrop-blur-sm">
+                  <ul className="mt-5 space-y-3 border border-[#7f1d1d]/30 bg-[#1b0c10]/45 px-4 py-4 text-left text-sm text-[#fecaca]/90 ">
                     {openSessions.map((s) => (
                       <li
                         key={s.id}
@@ -158,7 +158,7 @@ export function DailyClosing() {
                         <button
                           type="button"
                           disabled={abortingSessionId === s.id}
-                          className="inline-flex min-h-[48px] shrink-0 items-center justify-center border border-[#f87171]/55 bg-transparent px-4 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90 backdrop-blur-md hover:bg-[#7f1d1d]/15 disabled:opacity-50"
+                          className="inline-flex min-h-[48px] shrink-0 items-center justify-center border border-[#f87171]/55 bg-transparent px-4 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90  hover:bg-[#7f1d1d]/15 disabled:opacity-50"
                           onClick={() => void abortSessionFromClosing(s.id)}
                         >
                           {abortingSessionId === s.id ? "…" : "Session abbrechen"}
@@ -168,7 +168,7 @@ export function DailyClosing() {
                   </ul>
                   <Link
                     to="/"
-                    className="mt-8 inline-flex min-h-touch min-w-touch items-center justify-center border border-editorial-pulse bg-transparent px-8 text-[11px] font-light uppercase tracking-[0.32em] text-editorial-pulse no-underline backdrop-blur-sm transition hover:bg-[var(--editorial-pulse-dim)]"
+                    className="mt-8 inline-flex min-h-touch min-w-touch items-center justify-center border border-editorial-pulse bg-transparent px-8 text-[11px] font-light uppercase tracking-[0.32em] text-editorial-pulse no-underline  transition hover:bg-[var(--editorial-pulse-dim)]"
                   >
                     Zurück zum Dashboard — Sessions schließen
                   </Link>
@@ -386,7 +386,7 @@ export function DailyClosing() {
       )}
 
       {phase === "SUBMITTING" && (
-        <div className="fixed inset-0 z-[365] flex items-center justify-center bg-gray-400/70 backdrop-blur-[20px] print:hidden">
+        <div className="fixed inset-0 z-[365] flex items-center justify-center bg-gray-400/70  print:hidden">
           <p className="text-2xl font-bold text-deep-charcoal">Abschluss läuft …</p>
         </div>
       )}

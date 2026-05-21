@@ -551,7 +551,7 @@ export function AdminSettings() {
               <button
                 type="button"
                 disabled={staffBusy || newName.trim().length < 1 || !/^\d{4,6}$/.test(newPin)}
-                className="min-h-[52px] rounded-xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-8 text-[11px] font-light uppercase tracking-[0.26em] text-editorial-pulse shadow-luxury backdrop-blur-sm transition disabled:opacity-40"
+                className="min-h-[52px] rounded-xl border border-editorial-pulse bg-[var(--editorial-pulse-dim)]/45 px-8 text-[11px] font-light uppercase tracking-[0.26em] text-editorial-pulse shadow-luxury  transition disabled:opacity-40"
                 onClick={() => void createStaff()}
               >
                 Mitarbeiter anlegen
@@ -691,7 +691,7 @@ export function AdminSettings() {
 
           {editId != null && (
             <div
-              className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-100/80 p-4 backdrop-blur-2xl"
+              className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-100/80 p-4 "
               role="dialog"
               aria-modal="true"
             >

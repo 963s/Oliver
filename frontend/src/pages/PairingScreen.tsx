@@ -110,7 +110,7 @@ export function PairingScreen() {
   return (
     <div className="relative flex h-full min-h-0 items-center justify-center overflow-y-auto bg-canvas-white p-6 text-deep-charcoal">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_45%_at_70%_-5%,var(--editorial-pulse-dim),transparent_50%)]" />
-      <div className={`relative z-[1] w-full max-w-md border border-deep-charcoal/[0.08] bg-gray-100/90 p-9 md:p-11 backdrop-blur-xl`}>
+      <div className={`relative z-[1] w-full max-w-md border border-deep-charcoal/[0.08] bg-gray-100/90 p-9 md:p-11 `}>
         <h1 className="font-editorial-display text-4xl font-normal uppercase tracking-[0.18em] text-deep-charcoal">
           Kopplung
         </h1>
@@ -141,7 +141,7 @@ export function PairingScreen() {
         )}
 
         {showLocalDev && (
-          <div className="mt-6 rounded-luxury-md border border-editorial-pulse bg-[var(--editorial-pulse-dim)] p-4 backdrop-blur-md">
+          <div className="mt-6 rounded-luxury-md border border-editorial-pulse bg-[var(--editorial-pulse-dim)] p-4 ">
             <p className="text-xs font-normal uppercase tracking-[0.35em] text-editorial-pulse">Lokal</p>
             <p className="mt-1 text-xs leading-relaxed text-deep-charcoal/45">
               Ohne Inhaber-Code — nur wenn das API{" "}

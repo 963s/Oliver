@@ -42,7 +42,7 @@ export function OrphanBanner() {
 
   return (
     <div
-      className="z-[65] flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-red-500/35 bg-gradient-to-r from-red-950/95 via-red-950/90 to-red-900/85 px-4 py-2 text-sm text-red-50 shadow-[0_4px_24px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+      className="z-[65] flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-red-500/35 bg-gradient-to-r from-red-950/95 via-red-950/90 to-red-900/85 px-4 py-2 text-sm text-red-50 shadow-[0_4px_24px_rgba(0,0,0,0.28)] "
       role="alert"
     >
       <p className="min-w-0 flex-1 truncate font-medium">
@@ -53,7 +53,7 @@ export function OrphanBanner() {
       <div className="flex shrink-0 items-center gap-2">
         <Link
           to="/reconcile"
-          className="inline-flex min-h-[40px] items-center rounded-lg border border-red-400/40 bg-red-950/50 px-3 text-sm font-semibold text-red-100 no-underline backdrop-blur-sm hover:border-champagne-gold/40 hover:text-deep-charcoal"
+          className="inline-flex min-h-[40px] items-center rounded-lg border border-red-400/40 bg-red-950/50 px-3 text-sm font-semibold text-red-100 no-underline  hover:border-champagne-gold/40 hover:text-deep-charcoal"
         >
           Auswahl
         </Link>

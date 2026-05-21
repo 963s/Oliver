@@ -4,13 +4,13 @@
 
 /** Floating panels, dropdowns, modals — maximum depth */
 export const luxuryGlassFloat =
-  "bg-gray-100/90 backdrop-blur-xl border border-deep-charcoal/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)]";
+  "bg-gray-100/90  border border-deep-charcoal/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)]";
 
 export const luxuryGlassPanel =
-  "bg-gray-100/90 backdrop-blur-xl border border-deep-charcoal/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)]";
+  "bg-gray-100/90  border border-deep-charcoal/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)]";
 
 export const luxuryGlassPanelInner =
-  "bg-gray-200/50 backdrop-blur-lg border border-deep-charcoal/[0.08]";
+  "bg-gray-200/50  border border-deep-charcoal/[0.08]";
 
 /** Primary CTA — compact desktop height (h-9, was h-16). */
 export const luxuryButtonPrimary =

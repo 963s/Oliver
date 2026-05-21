@@ -85,7 +85,7 @@ export function FormulaRezepturModal({
 
   return (
     <div
-      className="fixed inset-0 z-[340] flex items-stretch justify-center bg-gray-400/70 p-2 backdrop-blur-[20px] sm:p-4"
+      className="fixed inset-0 z-[340] flex items-stretch justify-center bg-gray-400/70 p-2  sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="rezeptur-title"

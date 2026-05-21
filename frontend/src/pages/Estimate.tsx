@@ -28,18 +28,18 @@ function TouchStep({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal backdrop-blur-md transition hover:border-editorial-pulse hover:text-editorial-pulse"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal  transition hover:border-editorial-pulse hover:text-editorial-pulse"
           aria-label={`${label} verringern`}
           onClick={() => onChangeEur(clamp(valueEur - step, min, max))}
         >
           −
         </button>
-        <div className="min-w-[5.5rem] rounded-2xl border border-deep-charcoal/10 bg-gray-100/50 px-4 py-3 text-center font-mono text-2xl font-light tabular-nums text-deep-charcoal backdrop-blur-xl">
+        <div className="min-w-[5.5rem] rounded-2xl border border-deep-charcoal/10 bg-gray-100/50 px-4 py-3 text-center font-mono text-2xl font-light tabular-nums text-deep-charcoal ">
           {valueEur}
         </div>
         <button
           type="button"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal backdrop-blur-md transition hover:border-editorial-pulse hover:text-editorial-pulse"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal  transition hover:border-editorial-pulse hover:text-editorial-pulse"
           aria-label={`${label} erhöhen`}
           onClick={() => onChangeEur(clamp(valueEur + step, min, max))}
         >
@@ -156,7 +156,7 @@ export function Estimate() {
           <div className="mt-4 flex items-center justify-center gap-4">
             <button
               type="button"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal backdrop-blur-md transition hover:border-editorial-pulse hover:text-editorial-pulse"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal  transition hover:border-editorial-pulse hover:text-editorial-pulse"
               aria-label="Session-ID verringern"
               onClick={() => bumpSession(-1)}
             >
@@ -167,12 +167,12 @@ export function Estimate() {
               inputMode="numeric"
               value={sessionId || ""}
               onChange={(e) => setSessionId(Math.max(0, Math.floor(Number(e.target.value))))}
-              className="luxury-field mx-auto block w-full max-w-[12rem] rounded-2xl border border-deep-charcoal/12 bg-gray-100/50 px-4 py-4 text-center font-mono text-2xl font-light tabular-nums text-deep-charcoal backdrop-blur-xl"
+              className="luxury-field mx-auto block w-full max-w-[12rem] rounded-2xl border border-deep-charcoal/12 bg-gray-100/50 px-4 py-4 text-center font-mono text-2xl font-light tabular-nums text-deep-charcoal "
               aria-label="Session-ID"
             />
             <button
               type="button"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal backdrop-blur-md transition hover:border-editorial-pulse hover:text-editorial-pulse"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-deep-charcoal/14 bg-transparent text-2xl font-light text-deep-charcoal  transition hover:border-editorial-pulse hover:text-editorial-pulse"
               aria-label="Session-ID erhöhen"
               onClick={() => bumpSession(1)}
             >

@@ -47,7 +47,7 @@ export function LuxuryDateTimeFields({
     <div className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-deep-charcoal/45">{label}</p>
 
-      <div className="rounded-2xl border border-deep-charcoal/10 bg-gray-200/40 p-4 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-sm">
+      <div className="rounded-2xl border border-deep-charcoal/10 bg-gray-200/40 p-4 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] ">
         <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-deep-charcoal/35">Datum</p>
         <LuxuryDatePicker
           value={dateValue}
@@ -58,7 +58,7 @@ export function LuxuryDateTimeFields({
         />
       </div>
 
-      <div className="rounded-2xl border border-deep-charcoal/10 bg-gray-200/40 p-4 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-sm">
+      <div className="rounded-2xl border border-deep-charcoal/10 bg-gray-200/40 p-4 shadow-[inset_0_1px_0_rgba(0,0,0,0.04)] ">
         <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.18em] text-deep-charcoal/35">Uhrzeit</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <LuxurySelectMenu

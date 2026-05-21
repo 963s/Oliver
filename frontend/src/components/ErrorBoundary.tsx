@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
             informieren.
           </p>
           {this.state.message ? (
-            <pre className="mt-6 max-h-[40vh] max-w-2xl overflow-auto rounded-xl border border-deep-charcoal/10 bg-gray-100/80 p-4 text-left font-mono text-xs leading-relaxed text-red-600/90 backdrop-blur-md">
+            <pre className="mt-6 max-h-[40vh] max-w-2xl overflow-auto rounded-xl border border-deep-charcoal/10 bg-gray-100/80 p-4 text-left font-mono text-xs leading-relaxed text-red-600/90 ">
               {this.state.message}
             </pre>
           ) : null}

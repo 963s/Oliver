@@ -167,7 +167,7 @@ export function MirrorView() {
             .
           </p>
           {err ? (
-            <p className="mt-4 rounded-xl border border-red-400/60 bg-red-50/60 px-4 py-3 text-sm text-red-600/90 backdrop-blur-md">
+            <p className="mt-4 rounded-xl border border-red-400/60 bg-red-50/60 px-4 py-3 text-sm text-red-600/90 ">
               {err}
             </p>
           ) : null}
@@ -176,7 +176,7 @@ export function MirrorView() {
         <div className="grid w-full max-w-lg gap-6 sm:grid-cols-2 sm:gap-8">
           <Link
             to="/walk-in"
-            className="group flex min-h-[120px] flex-col justify-center border border-deep-charcoal/[0.08] bg-gray-100/40 p-8 text-left backdrop-blur-sm transition hover:border-editorial-pulse hover:shadow-[0_0_48px_var(--editorial-pulse-dim)]"
+            className="group flex min-h-[120px] flex-col justify-center border border-deep-charcoal/[0.08] bg-gray-100/40 p-8 text-left  transition hover:border-editorial-pulse hover:shadow-[0_0_48px_var(--editorial-pulse-dim)]"
           >
             <span className="text-[10px] font-light uppercase tracking-[0.45em] text-deep-charcoal/48">Studio</span>
             <span className="mt-3 font-editorial-display text-2xl uppercase tracking-[0.14em] text-deep-charcoal/92">
@@ -186,7 +186,7 @@ export function MirrorView() {
           </Link>
           <Link
             to="/"
-            className="group flex min-h-[120px] flex-col justify-center border border-deep-charcoal/[0.08] bg-gray-100/40 p-8 text-left backdrop-blur-sm transition hover:border-editorial-pulse hover:shadow-[0_0_48px_var(--editorial-pulse-dim)]"
+            className="group flex min-h-[120px] flex-col justify-center border border-deep-charcoal/[0.08] bg-gray-100/40 p-8 text-left  transition hover:border-editorial-pulse hover:shadow-[0_0_48px_var(--editorial-pulse-dim)]"
           >
             <span className="text-[10px] font-light uppercase tracking-[0.45em] text-deep-charcoal/48">Kalender</span>
             <span className="mt-3 font-editorial-display text-2xl uppercase tracking-[0.14em] text-deep-charcoal/92">
@@ -259,7 +259,7 @@ export function MirrorView() {
           type="button"
           disabled={cancelBusy}
           title="Serverseitig beenden — hängengebliebene Sitzung, kein Beleg"
-          className="ml-auto inline-flex min-h-[52px] min-w-0 shrink-0 items-center justify-center rounded-xl border border-red-400/60 bg-red-50/60 px-5 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90 shadow-[0_0_24px_rgba(220,38,38,0.12)] backdrop-blur-md hover:bg-red-50/80 hover:text-red-500 disabled:opacity-50"
+          className="ml-auto inline-flex min-h-[52px] min-w-0 shrink-0 items-center justify-center rounded-xl border border-red-400/60 bg-red-50/60 px-5 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90 shadow-[0_0_24px_rgba(220,38,38,0.12)]  hover:bg-red-50/80 hover:text-red-500 disabled:opacity-50"
           onClick={() => void forceCancelThisSession()}
         >
           {cancelBusy ? "…" : "Session abbrechen"}
@@ -294,7 +294,7 @@ export function MirrorView() {
                 <button
                   key={row.id}
                   type="button"
-                  className="group min-h-[96px] border border-editorial-pulse bg-gradient-to-br from-transparent to-[color-mix(in_srgb,var(--editorial-pulse)_8%,transparent)] px-6 py-5 text-left backdrop-blur-sm transition-[transform,border-color,box-shadow] duration-500 hover:shadow-[0_0_40px_var(--editorial-pulse-dim)] active:scale-[0.99]"
+                  className="group min-h-[96px] border border-editorial-pulse bg-gradient-to-br from-transparent to-[color-mix(in_srgb,var(--editorial-pulse)_8%,transparent)] px-6 py-5 text-left  transition-[transform,border-color,box-shadow] duration-500 hover:shadow-[0_0_40px_var(--editorial-pulse-dim)] active:scale-[0.99]"
                   onClick={() =>
                     addItem(sessionId, {
                       serviceKey: serviceCartKey(row),

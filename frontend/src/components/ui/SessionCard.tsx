@@ -44,7 +44,7 @@ export function SessionCard({
   return (
     <div
       className={[
-        "group relative w-full min-h-[132px] overflow-hidden rounded-2xl border border-deep-charcoal/10 bg-gradient-to-br text-left shadow-[0_0_44px_rgba(212,175,55,0.1)] backdrop-blur-2xl transition",
+        "group relative w-full min-h-[132px] overflow-hidden rounded-2xl border border-deep-charcoal/10 bg-gradient-to-br text-left shadow-[0_0_44px_rgba(212,175,55,0.1)]  transition",
         "ring-1 ring-inset ring-white/[0.06]",
         "hover:border-champagne-gold/30 hover:shadow-[0_0_52px_rgba(212,175,55,0.18)]",
         gradient,
@@ -66,7 +66,7 @@ export function SessionCard({
       >
         <div className="flex items-start justify-between gap-3">
           <span
-            className="inline-block rounded-full border border-deep-charcoal/12 bg-gray-200/70 px-3 py-1.5 text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/90 backdrop-blur-md"
+            className="inline-block rounded-full border border-deep-charcoal/12 bg-gray-200/70 px-3 py-1.5 text-[10px] font-light uppercase tracking-[0.2em] text-deep-charcoal/90 "
             aria-hidden
           >
             {kindLabel}
@@ -88,7 +88,7 @@ export function SessionCard({
           <button
             type="button"
             disabled={forceCancelBusy}
-            className="flex min-h-[52px] w-full items-center justify-center rounded-xl border border-red-400/55 bg-red-50/55 px-4 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90 backdrop-blur-md transition hover:bg-red-50/75 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-[52px] w-full items-center justify-center rounded-xl border border-red-400/55 bg-red-50/55 px-4 text-[11px] font-light uppercase tracking-[0.22em] text-red-600/90  transition hover:bg-red-50/75 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

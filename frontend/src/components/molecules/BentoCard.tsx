@@ -11,7 +11,7 @@ export function BentoCard({ children, className = "", spanClass = "", ...rest }:
   return (
     <section
       {...rest}
-      className={`rounded-bento border border-brushed-chrome/25 bg-gray-200/90 p-5 shadow-luxury backdrop-blur-sm ${spanClass} ${className}`}
+      className={`rounded-bento border border-brushed-chrome/25 bg-gray-200/90 p-5 shadow-luxury  ${spanClass} ${className}`}
     >
       {children}
     </section>

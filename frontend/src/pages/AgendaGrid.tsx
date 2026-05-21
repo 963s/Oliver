@@ -106,18 +106,18 @@ function AgendaSlotWithDrop({
     dragUi.hoverSlotIndex === slotIndex;
 
   let cls = inWin
-    ? "box-border w-full border-b border-deep-charcoal/[0.07] bg-gray-100/60 backdrop-blur-[2px] hover:bg-gray-200/55 active:bg-gray-200/70"
+    ? "box-border w-full border-b border-deep-charcoal/[0.07] bg-gray-100/60  hover:bg-gray-200/55 active:bg-gray-200/70"
     : "box-border w-full cursor-default border-b border-deep-charcoal/[0.05] bg-gray-200/60";
 
   if (dragging && inWin) {
     /* Empty availability slots: warm champagne wash at full opacity so the grid stays readable at 60fps (class-only, no extra work per frame). */
     cls =
-      "box-border w-full cursor-default border-b border-champagne-gold/20 bg-champagne-gold/[0.07] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.12)] backdrop-blur-[2px]";
+      "box-border w-full cursor-default border-b border-champagne-gold/20 bg-champagne-gold/[0.07] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.12)] ";
     if (isHover) {
       cls =
         dragUi.hoverValid === true
-          ? "box-border z-[5] w-full border-b border-champagne-gold/40 bg-champagne-gold/[0.16] shadow-[0_0_36px_rgba(212,175,55,0.32),inset_0_0_0_1px_rgba(212,175,55,0.35)] ring-2 ring-champagne-gold/45 backdrop-blur-md"
-          : "box-border z-[5] w-full cursor-no-drop border-b border-red-400/35 bg-red-950/40 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] ring-2 ring-red-400/40 backdrop-blur-md";
+          ? "box-border z-[5] w-full border-b border-champagne-gold/40 bg-champagne-gold/[0.16] shadow-[0_0_36px_rgba(212,175,55,0.32),inset_0_0_0_1px_rgba(212,175,55,0.35)] ring-2 ring-champagne-gold/45 "
+          : "box-border z-[5] w-full cursor-no-drop border-b border-red-400/35 bg-red-950/40 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] ring-2 ring-red-400/40 ";
     }
   }
 
@@ -280,11 +280,11 @@ export const StaffColumn = memo(
 
     return (
       <div className="flex w-[9.25rem] shrink-0 flex-col rounded-luxury-md border border-deep-charcoal/10 bg-gray-200/25 sm:w-40">
-        <div className="sticky top-0 z-[24] flex h-11 shrink-0 items-center justify-center rounded-t-luxury-md border-b border-deep-charcoal/10 bg-gray-200/40 px-1 text-center text-[11px] font-bold uppercase leading-tight tracking-wide text-deep-charcoal/80 backdrop-blur-xl sm:text-xs font-heading">
+        <div className="sticky top-0 z-[24] flex h-11 shrink-0 items-center justify-center rounded-t-luxury-md border-b border-deep-charcoal/10 bg-gray-200/40 px-1 text-center text-[11px] font-bold uppercase leading-tight tracking-wide text-deep-charcoal/80  sm:text-xs font-heading">
           <span className="line-clamp-2">{displayName}</span>
         </div>
         <div
-          className="relative shrink-0 rounded-b-luxury-md bg-gray-200/40 backdrop-blur-md"
+          className="relative shrink-0 rounded-b-luxury-md bg-gray-200/40 "
           style={{ height: TOTAL_GRID_PX }}
         >
           {dragUi.activeAptId != null &&
@@ -416,7 +416,7 @@ export const AgendaAppointmentCard = memo(
 
     return (
       <div
-        className={`pointer-events-auto z-[15] flex flex-col overflow-hidden rounded-luxury-md border ${shell} backdrop-blur-md ${
+        className={`pointer-events-auto z-[15] flex flex-col overflow-hidden rounded-luxury-md border ${shell}  ${
           fillParent ? "absolute inset-0" : "absolute left-1 right-1"
         }`}
         style={
@@ -479,8 +479,8 @@ type TimeRulerProps = {
 
 function TimeRuler({ showEveryNthSlot }: TimeRulerProps) {
   return (
-    <div className="sticky left-0 z-[30] flex w-14 shrink-0 self-start flex-col rounded-luxury-md border border-deep-charcoal/10 bg-gray-200/35 text-deep-charcoal/30 backdrop-blur-2xl sm:w-16">
-      <div className="h-11 shrink-0 rounded-t-luxury-md border-b border-deep-charcoal/10 bg-gray-200/40 backdrop-blur-xl" aria-hidden />
+    <div className="sticky left-0 z-[30] flex w-14 shrink-0 self-start flex-col rounded-luxury-md border border-deep-charcoal/10 bg-gray-200/35 text-deep-charcoal/30  sm:w-16">
+      <div className="h-11 shrink-0 rounded-t-luxury-md border-b border-deep-charcoal/10 bg-gray-200/40 " aria-hidden />
       <div className="flex flex-col rounded-b-luxury-md" style={{ height: TOTAL_GRID_PX }}>
         {Array.from({ length: SLOT_COUNT }, (_, slotIndex) => (
           <div
@@ -1088,7 +1088,7 @@ export function AgendaGrid({
 
       {pendingMove && (
         <div
-          className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-400/70 p-4 backdrop-blur-[20px]"
+          className="fixed inset-0 z-[330] flex items-center justify-center bg-gray-400/70 p-4 "
           role="dialog"
           aria-modal="true"
           aria-labelledby="agenda-move-reason-h"

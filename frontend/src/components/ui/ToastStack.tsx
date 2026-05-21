@@ -15,7 +15,7 @@ export function ToastStack() {
         <button
           key={t.id}
           type="button"
-          className={`pointer-events-auto rounded-bento border px-4 py-3 text-left text-sm font-light uppercase tracking-[0.16em] shadow-luxury backdrop-blur-md ${
+          className={`pointer-events-auto rounded-bento border px-4 py-3 text-left text-sm font-light uppercase tracking-[0.16em] shadow-luxury  ${
             t.variant === "error"
               ? "border-red-400/60 bg-red-50/90 text-red-600/90"
               : t.variant === "success"

@@ -370,6 +370,10 @@ export const inventoryItems = sqliteTable(
     isRetail: integer("is_retail", { mode: "boolean" })
       .notNull()
       .default(false),
+    /** Whether the product is currently active and visible in the inventory list. */
+    active: integer("active", { mode: "boolean" })
+      .notNull()
+      .default(true),
     /**
      * If set: when `on_hand_ml` ≤ this value, a **single** `system_alerts` row (kind `low_stock`)
      * is opened (idempotent; no new row on every repeated deduct). `NULL` = do not auto-alert.

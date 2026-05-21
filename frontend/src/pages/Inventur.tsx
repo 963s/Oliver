@@ -5,7 +5,7 @@
  * ✓ Neues Produkt anlegen
  */
 import { useCallback, useEffect, useState } from "react";
-import { apiGet, apiPost } from "../api";
+import { apiGet, apiPost, apiDelete } from "../api";
 
 type InventoryItem = {
   id: number;
@@ -95,61 +95,160 @@ function InventoryList({
         {items
           .slice()
           .sort((a, b) => a.name.localeCompare(b.name))
-          .map((item) => {
-            const low =
-              item.minStockThresholdMl != null &&
-              item.onHandMl <= item.minStockThresholdMl;
-            const empty = item.onHandMl <= 0;
-            return (
-              <div
-                key={item.id}
-                className={`border bg-white/80 p-4 transition hover:bg-white ${
-                  empty
-                    ? "border-red-300/60"
-                    : low
-                    ? "border-amber-300/50"
-                    : "border-deep-charcoal/[0.07]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm text-deep-charcoal/90 truncate">
-                      {item.name}
-                    </p>
-                    {item.defaultUnitMl > 0 && (
-                      <p className="text-[10px] text-deep-charcoal/35 mt-0.5">
-                        Standardeinheit: {mlDisplay(item.defaultUnitMl)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p
-                      className={`font-mono text-lg font-medium tabular-nums ${
-                        empty
-                          ? "text-red-500"
-                          : low
-                          ? "text-amber-500"
-                          : "text-editorial-pulse"
-                      }`}
-                    >
-                      {mlDisplay(item.onHandMl)}
-                    </p>
-                    {low && !empty && (
-                      <p className="text-[9px] uppercase tracking-wider text-amber-500/80 mt-0.5">
-                        Mindestbestand erreicht
-                      </p>
-                    )}
-                    {empty && (
-                      <p className="text-[9px] uppercase tracking-wider text-red-500/80 mt-0.5">
-                        Kein Bestand
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          .map((item) => (
+            <InventoryListItem key={item.id} item={item} onRefresh={onRefresh} />
+          ))}
       </div>
+    </div>
+  );
+}
+
+function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [newMl, setNewMl] = useState(String(item.onHandMl));
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  
+  const low = item.minStockThresholdMl != null && item.onHandMl <= item.minStockThresholdMl;
+  const empty = item.onHandMl <= 0;
+
+  const handleDelete = async () => {
+    if (!confirm(`Soll das Produkt "${item.name}" wirklich gelöscht werden?`)) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/inventory/${item.id}`);
+      onRefresh();
+    } catch (e) {
+      alert("Fehler beim Löschen: " + (e instanceof Error ? e.message : "Unbekannt"));
+      setDeleting(false);
+    }
+  };
+
+  const handleAdjust = async () => {
+    const ml = parseInt(newMl, 10);
+    if (isNaN(ml) || ml < 0) {
+      alert("Bitte einen gültigen Bestand in ml eingeben.");
+      return;
+    }
+    if (ml === item.onHandMl) {
+      setEditing(false);
+      return;
+    }
+    if (!reason.trim()) {
+      alert("Bitte einen Grund angeben (z.B. Zählkorrektur).");
+      return;
+    }
+    
+    setBusy(true);
+    const delta = ml - item.onHandMl;
+    const type = delta > 0 ? "increase" : "decrease";
+    const amountMl = Math.abs(delta);
+    const payload: any = { itemId: item.id, amountMl, type, reason: reason.trim() };
+    if (type === "decrease") payload.category = "count_correction";
+
+    try {
+      await apiPost("/api/inventory/adjust", payload);
+      setEditing(false);
+      setReason("");
+      onRefresh();
+    } catch (e) {
+      alert("Fehler beim Speichern: " + (e instanceof Error ? e.message : "Unbekannt"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className={`border bg-white/80 p-4 transition hover:bg-white ${
+        empty ? "border-red-300/60" : low ? "border-amber-300/50" : "border-deep-charcoal/[0.07]"
+      } ${deleting ? "opacity-50 pointer-events-none" : ""}`}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-sm text-deep-charcoal/90 truncate">{item.name}</p>
+          {item.defaultUnitMl > 0 && (
+            <p className="text-[10px] text-deep-charcoal/35 mt-0.5">
+              Standardeinheit: {mlDisplay(item.defaultUnitMl)}
+            </p>
+          )}
+        </div>
+        
+        <div className="text-right shrink-0">
+          <p className={`font-mono text-lg font-medium tabular-nums ${
+            empty ? "text-red-500" : low ? "text-amber-500" : "text-editorial-pulse"
+          }`}>
+            {mlDisplay(item.onHandMl)}
+          </p>
+          {low && !empty && <p className="text-[9px] uppercase tracking-wider text-amber-500/80 mt-0.5">Mindestbestand erreicht</p>}
+          {empty && <p className="text-[9px] uppercase tracking-wider text-red-500/80 mt-0.5">Kein Bestand</p>}
+        </div>
+      </div>
+      
+      {/* Action Buttons */}
+      {!editing && (
+        <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-deep-charcoal/5">
+          <button 
+            type="button" 
+            onClick={() => { setEditing(true); setNewMl(String(item.onHandMl)); }}
+            className="text-[10px] uppercase tracking-[0.15em] text-deep-charcoal/50 hover:text-editorial-pulse transition"
+          >
+            ✏️ Korrektur
+          </button>
+          <button 
+            type="button" 
+            onClick={handleDelete}
+            className="text-[10px] uppercase tracking-[0.15em] text-red-400/80 hover:text-red-600 transition"
+          >
+            🗑️ Löschen
+          </button>
+        </div>
+      )}
+
+      {/* Edit Form */}
+      {editing && (
+        <div className="mt-4 pt-4 border-t border-deep-charcoal/[0.07] flex flex-col sm:flex-row gap-3 items-end">
+          <div className="w-full sm:flex-1">
+            <p className="text-[9px] font-light uppercase tracking-wider text-deep-charcoal/50 mb-1">Neuer Bestand (ml)</p>
+            <input 
+              type="number" 
+              min="0" 
+              className="luxury-field w-full text-sm" 
+              value={newMl} 
+              onChange={e => setNewMl(e.target.value)} 
+            />
+          </div>
+          <div className="w-full sm:flex-1">
+            <p className="text-[9px] font-light uppercase tracking-wider text-deep-charcoal/50 mb-1">Grund (z.B. Zählkorrektur)</p>
+            <input 
+              type="text" 
+              placeholder="Grund für Änderung" 
+              className="luxury-field w-full text-sm" 
+              value={reason} 
+              onChange={e => setReason(e.target.value)} 
+            />
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button 
+              type="button" 
+              onClick={() => setEditing(false)}
+              className="px-4 py-2 text-[10px] uppercase tracking-wider text-deep-charcoal/50 bg-gray-100 hover:bg-gray-200 transition"
+              disabled={busy}
+            >
+              Abbrechen
+            </button>
+            <button 
+              type="button" 
+              onClick={handleAdjust}
+              className="px-4 py-2 text-[10px] uppercase tracking-wider text-white bg-editorial-pulse hover:bg-editorial-pulse/90 transition"
+              disabled={busy}
+            >
+              {busy ? "..." : "Speichern"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

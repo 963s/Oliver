@@ -40,3 +40,8 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   const r = await http.put<T>(path, body);
   return r.data;
 }
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const r = await http.delete<T>(path);
+  return r.data;
+}

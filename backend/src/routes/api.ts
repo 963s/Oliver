@@ -1555,7 +1555,7 @@ export function registerApi(
   app.get(
     "/api/inventory",
     asyncRoute((_req, res) => {
-      res.json(db.select().from(schema.inventoryItems).all());
+      res.json(db.select().from(schema.inventoryItems).where(eq(schema.inventoryItems.active, true)).all());
     }),
   );
 
@@ -1656,6 +1656,23 @@ export function registerApi(
         .limit(1)
         .all();
       res.json(out ?? cur);
+    }),
+  );
+
+  app.delete(
+    "/api/inventory/:id",
+    asyncRoute((req, res) => {
+      requireOwner(req);
+      const id = Number.parseInt(req.params.id ?? "", 10);
+      if (!Number.isFinite(id) || id < 1) {
+        res.status(400).json({ error: "bad_id" });
+        return;
+      }
+      db.update(schema.inventoryItems)
+        .set({ active: false })
+        .where(eq(schema.inventoryItems.id, id))
+        .run();
+      res.json({ ok: true });
     }),
   );
 

@@ -218,6 +218,13 @@
       "when": 1748208000000,
       "tag": "0030_sqlite_maintenance_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1779373508911,
+      "tag": "0031_salty_hemingway",
+      "breakpoints": true
     }
   ]
 }

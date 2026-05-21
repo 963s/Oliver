@@ -225,6 +225,13 @@
       "when": 1779915600000,
       "tag": "0032_address_and_product_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1779916000000,
+      "tag": "0033_inventory_items_active",
+      "breakpoints": true
     }
   ]
 }

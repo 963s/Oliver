@@ -10,7 +10,8 @@ import { app, BrowserWindow, Menu, ipcMain, shell, dialog, Tray, nativeImage } f
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, createWriteStream } from "node:fs";
+import { tmpdir } from "node:os";
 import http from "node:http";
 import https from "node:https";
 import crypto from "node:crypto";
@@ -242,10 +243,13 @@ function setupMenu() {
   Menu.setApplicationMenu(null);
 }
 
-/* ── Update Checker (Production) ─────────────────────────────────────────
-   App ist nicht Apple-signiert → electron-updater kann auf macOS nicht
-   installieren (Gatekeeper). Stattdessen: GitHub-Release-Check + Hinweis
-   mit Link zum manuellen Download. */
+/* ── Update Checker + Installer (Production) ────────────────────────────
+   App ist nicht Apple-signiert. Strategie:
+   1. checkForUpdate: pollt GitHub-API, findet passende DMG (Intel/ARM)
+   2. UpdateBanner zeigt "Jetzt installieren"
+   3. or:installUpdate IPC: lädt DMG, schreibt Helper-Skript, beendet App;
+      Helper hängt DMG an, ersetzt /Applications-App, entfernt Quarantine,
+      startet die App neu — wie ein open-source-Tool. */
 
 function compareSemver(a, b) {
   const pa = a.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
@@ -284,7 +288,24 @@ function fetchLatestRelease() {
   });
 }
 
+/** Returns the DMG asset URL for the current architecture, or null if not found. */
+function pickDmgForArch(rel) {
+  const isArm = process.arch === "arm64";
+  const assets = rel.assets ?? [];
+  // Intel match: ends with version.dmg (no arch suffix). Arm: contains arm64.dmg
+  for (const a of assets) {
+    const name = a.name || "";
+    if (!name.endsWith(".dmg")) continue;
+    if (name.includes("blockmap")) continue;
+    const hasArm = name.includes("arm64");
+    if (isArm && hasArm) return a.browser_download_url;
+    if (!isArm && !hasArm) return a.browser_download_url;
+  }
+  return null;
+}
+
 let lastNotifiedVersion = null;
+let pendingUpdate = null; // { version, dmgUrl, releaseUrl }
 
 async function checkForUpdate(silent = true) {
   try {
@@ -293,20 +314,26 @@ async function checkForUpdate(silent = true) {
     const latest = String(rel.tag_name).replace(/^v/, "");
     const current = app.getVersion();
     if (compareSemver(latest, current) <= 0) return null;
-    if (lastNotifiedVersion === latest) return null;
+
+    const dmgUrl = pickDmgForArch(rel);
+    const releaseUrl = rel.html_url || `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
+    pendingUpdate = { version: latest, dmgUrl, releaseUrl };
+
+    if (lastNotifiedVersion === latest) return pendingUpdate;
     lastNotifiedVersion = latest;
 
-    const releaseUrl = rel.html_url || `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("update-available", {
         version: latest,
         currentVersion: current,
         url: releaseUrl,
+        dmgUrl,
+        canAutoInstall: dmgUrl != null,
         notes: rel.body ?? "",
       });
     }
-    console.log(`[updater] Neue Version verfügbar: ${latest} (aktuell: ${current})`);
-    return { version: latest, url: releaseUrl };
+    console.log(`[updater] Neue Version: ${latest} (aktuell: ${current})  DMG: ${dmgUrl ?? "—"}`);
+    return pendingUpdate;
   } catch (err) {
     if (!silent) console.error("[updater] Prüfung fehlgeschlagen:", err.message);
     return null;
@@ -317,6 +344,108 @@ function setupAutoUpdater() {
   if (isDev) return;
   setTimeout(() => { void checkForUpdate(); }, 8_000);
   setInterval(() => { void checkForUpdate(); }, UPDATE_CHECK_INTERVAL_MS);
+}
+
+/* ── Update Installer ───────────────────────────────────────────────────
+   Lädt DMG, schreibt Helper-Skript, startet es detached, beendet App.
+   Das Skript wartet auf den App-Exit, mountet DMG, ersetzt App-Bundle,
+   entfernt Quarantine, startet App neu.  */
+
+function downloadFile(url, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const file = createWriteStream(destPath);
+    const followRedirects = (u, depth = 0) => {
+      if (depth > 5) return reject(new Error("Too many redirects"));
+      https.get(u, {
+        headers: { "User-Agent": "OliverRoosPOS-Updater" },
+      }, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          return followRedirects(res.headers.location, depth + 1);
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const total = parseInt(res.headers["content-length"] || "0", 10);
+        let received = 0;
+        res.on("data", (chunk) => {
+          received += chunk.length;
+          if (onProgress && total > 0) onProgress(received, total);
+        });
+        res.pipe(file);
+        file.on("finish", () => file.close(() => resolve(destPath)));
+      }).on("error", reject);
+    };
+    followRedirects(url);
+  });
+}
+
+async function performInstallUpdate() {
+  if (!pendingUpdate || !pendingUpdate.dmgUrl) {
+    throw new Error("Kein Update verfügbar");
+  }
+  const { version, dmgUrl } = pendingUpdate;
+  const userData = app.getPath("userData");
+  const updatesDir = path.join(userData, "updates");
+  mkdirSync(updatesDir, { recursive: true });
+  const dmgPath = path.join(updatesDir, `oliver-${version}.dmg`);
+
+  // Progress-Reports an Renderer
+  const reportProgress = (received, total) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update-progress", {
+        received, total, percent: Math.round((received / total) * 100),
+      });
+    }
+  };
+
+  console.log(`[updater] Lade DMG: ${dmgUrl}`);
+  await downloadFile(dmgUrl, dmgPath, reportProgress);
+  console.log(`[updater] DMG gespeichert: ${dmgPath}`);
+
+  // Helper-Skript schreiben (in /tmp; selbst-löschend)
+  const appName = "Oliver Roos Friseur";
+  const appPath = `/Applications/${appName}.app`;
+  const scriptPath = path.join(tmpdir(), `oliver-update-${Date.now()}.sh`);
+  const helper = `#!/bin/bash
+set -e
+LOG="${userData}/updates/install-$(date +%Y%m%d-%H%M%S).log"
+exec > "$LOG" 2>&1
+echo "Update-Installer gestartet $(date)"
+# Warte bis die App komplett beendet ist (max 30 s)
+for i in $(seq 1 30); do
+  if ! pgrep -f "${appName}" >/dev/null; then break; fi
+  sleep 1
+done
+sleep 2  # Sicherheitspuffer
+echo "App beendet, montiere DMG ..."
+MOUNT_OUT=$(hdiutil attach "${dmgPath}" -nobrowse -quiet)
+MOUNT=$(echo "$MOUNT_OUT" | grep '/Volumes/' | awk -F '\\t' '{print $NF}' | head -n1)
+if [ -z "$MOUNT" ]; then echo "Mount fehlgeschlagen"; exit 1; fi
+echo "Gemountet: $MOUNT"
+if [ -d "${appPath}" ]; then
+  rm -rf "${appPath}"
+fi
+cp -R "$MOUNT/${appName}.app" "${appPath}"
+hdiutil detach "$MOUNT" -quiet
+xattr -dr com.apple.quarantine "${appPath}" 2>/dev/null || true
+echo "Installation abgeschlossen, starte App neu ..."
+sleep 1
+open "${appPath}"
+rm -f "$0"
+rm -f "${dmgPath}"
+`;
+  writeFileSync(scriptPath, helper, { mode: 0o755 });
+  console.log(`[updater] Helper geschrieben: ${scriptPath}`);
+
+  // Detached + unref → läuft weiter, nachdem die App beendet ist
+  spawn("/bin/bash", [scriptPath], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
+
+  // App beenden (Helper übernimmt)
+  setTimeout(() => { app.quit(); }, 500);
+  return { ok: true, version };
 }
 
 /* ── App lifecycle ───────────────────────────────────────────────────────── */
@@ -388,5 +517,15 @@ ipcMain.handle("or:checkForUpdate", async () => {
 ipcMain.handle("or:openUpdatePage", (_e, url) => {
   if (typeof url === "string" && url.startsWith("https://github.com/")) {
     void shell.openExternal(url);
+  }
+});
+
+// Frontend triggert vollautomatische Installation
+ipcMain.handle("or:installUpdate", async () => {
+  try {
+    return await performInstallUpdate();
+  } catch (err) {
+    console.error("[updater] Installation fehlgeschlagen:", err.message);
+    return { ok: false, error: err.message };
   }
 });

@@ -18,6 +18,7 @@ import { LuxurySelectMenu } from "../components/ui/LuxurySelectMenu";
 import { luxuryGlassFloat } from "../lib/luxuryUi";
 import { luxurySpring, luxurySpringReduced } from "../lib/motionPresets";
 import { useUiShellStore } from "../store/uiShellStore";
+import { UpdateSettingsCard } from "../components/UpdateSettingsCard";
 
 type StaffRow = {
   id: number;
@@ -477,6 +478,11 @@ export function AdminSettings() {
             ← Chef-Ansicht
           </Link>
         </div>
+      </div>
+
+      {/* Update card always visible at the top — independent of tabs */}
+      <div className="mb-6">
+        <UpdateSettingsCard />
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">

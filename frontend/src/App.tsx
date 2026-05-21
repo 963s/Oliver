@@ -30,6 +30,7 @@ import { AdminDiagnostics } from "./pages/AdminDiagnostics";
 import { HelpHandbuch } from "./pages/HelpHandbuch";
 import { EmbeddedDesktopGate } from "./shell/EmbeddedDesktopGate";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { VersionBadge } from "./components/VersionBadge";
 import { OnboardingWizard } from "./pages/OnboardingWizard";
 import { useState } from "react";
 import { http } from "./lib/apiClient";
@@ -172,6 +173,7 @@ export default function App() {
         <ToastStack />
         <PrintPaperFX />
         <UpdateBanner />
+        <VersionBadge />
       </BrowserRouter>
     </ErrorBoundary>
   );

@@ -29,6 +29,23 @@ export function UpdateBanner() {
     const off2 = window.orElectron?.onUpdateProgress((p) => {
       setPercent(p.percent);
     });
+    // Behebt das IPC-vor-Listener-Rennen: das Main-Prozess hatte vielleicht
+    // schon ein Update erkannt, bevor wir bereit waren zuzuhören. Jetzt fragen
+    // wir aktiv nach.
+    void window.orElectron?.getPendingUpdate().then((pending) => {
+      if (pending) {
+        setInfo({
+          version:        pending.version,
+          currentVersion: pending.currentVersion,
+          url:            pending.url,
+          dmgUrl:         pending.dmgUrl,
+          canAutoInstall: Boolean(pending.dmgUrl),
+          notes:          pending.notes ?? "",
+        });
+      }
+    });
+    // Sofortiger Check beim Mounten, falls Main noch nicht gecheckt hat
+    void window.orElectron?.checkForUpdate();
     return () => { off1?.(); off2?.(); };
   }, []);
 

@@ -305,45 +305,113 @@ function pickDmgForArch(rel) {
 }
 
 let lastNotifiedVersion = null;
-let pendingUpdate = null; // { version, dmgUrl, releaseUrl }
+let pendingUpdate = null;        // { version, dmgUrl, releaseUrl } — null if no update available
+let lastCheckedAt = null;        // ms timestamp of last successful check
+let lastCheckError = null;       // last error message from a failed check
+let lastCheckOutcome = "never";  // "never" | "no_update" | "update_available" | "error"
 
-async function checkForUpdate(silent = true) {
+function broadcastBanner(latest, current, dmgUrl, releaseUrl, notes) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-available", {
+      version: latest,
+      currentVersion: current,
+      url: releaseUrl,
+      dmgUrl,
+      canAutoInstall: dmgUrl != null && process.platform === "darwin",
+      platform: process.platform,
+      notes: notes ?? "",
+    });
+  }
+}
+
+/**
+ * Checks GitHub for a new release.
+ *  - Always logs the outcome (so it shows up in Console.app).
+ *  - When called with manual=true, also broadcasts a "no update" status so the
+ *    UI can confirm the check ran.
+ */
+async function checkForUpdate({ manual = false } = {}) {
+  console.log(`[updater] checkForUpdate(manual=${manual}) — current=${app.getVersion()}`);
   try {
     const rel = await fetchLatestRelease();
-    if (rel.draft || !rel.tag_name) return null;
-    const latest = String(rel.tag_name).replace(/^v/, "");
+    lastCheckedAt = Date.now();
+    lastCheckError = null;
+
+    if (rel.draft || !rel.tag_name) {
+      lastCheckOutcome = "no_update";
+      console.log("[updater] release is draft or untagged — nothing to do");
+      return { status: "no_update", current: app.getVersion() };
+    }
+    const latest  = String(rel.tag_name).replace(/^v/, "");
     const current = app.getVersion();
-    if (compareSemver(latest, current) <= 0) return null;
+    const cmp = compareSemver(latest, current);
+    if (cmp <= 0) {
+      lastCheckOutcome = "no_update";
+      pendingUpdate = null;
+      console.log(`[updater] up-to-date (latest=${latest}, current=${current})`);
+      // Echo back to renderer so a manual "Jetzt prüfen" gets confirmation.
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("update-check-complete", {
+          status: "no_update",
+          current,
+          latest,
+          checkedAt: lastCheckedAt,
+        });
+      }
+      return { status: "no_update", current, latest };
+    }
 
     const dmgUrl = pickDmgForArch(rel);
     const releaseUrl = rel.html_url || `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
-    pendingUpdate = { version: latest, dmgUrl, releaseUrl };
+    pendingUpdate = { version: latest, dmgUrl, releaseUrl, notes: rel.body ?? "" };
+    lastCheckOutcome = "update_available";
+    console.log(`[updater] NEW VERSION ${latest} (current ${current})  DMG: ${dmgUrl ?? "—"}`);
 
-    if (lastNotifiedVersion === latest) return pendingUpdate;
+    // Re-broadcast even if already notified this version: the renderer may have
+    // mounted late, or the user dismissed and we want it re-shown after restart.
+    const isNewToThisSession = lastNotifiedVersion !== latest;
     lastNotifiedVersion = latest;
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("update-available", {
-        version: latest,
-        currentVersion: current,
-        url: releaseUrl,
-        dmgUrl,
-        canAutoInstall: dmgUrl != null,
-        notes: rel.body ?? "",
+    if (isNewToThisSession || manual) {
+      broadcastBanner(latest, current, dmgUrl, releaseUrl, rel.body);
+    }
+    return { status: "update_available", current, latest, dmgUrl };
+  } catch (err) {
+    lastCheckError = err instanceof Error ? err.message : String(err);
+    lastCheckOutcome = "error";
+    console.error("[updater] check failed:", lastCheckError);
+    if (manual && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("update-check-complete", {
+        status: "error",
+        error: lastCheckError,
+        checkedAt: Date.now(),
       });
     }
-    console.log(`[updater] Neue Version: ${latest} (aktuell: ${current})  DMG: ${dmgUrl ?? "—"}`);
-    return pendingUpdate;
-  } catch (err) {
-    if (!silent) console.error("[updater] Prüfung fehlgeschlagen:", err.message);
-    return null;
+    return { status: "error", error: lastCheckError };
   }
+}
+
+/** Called as soon as the renderer mounts, so the banner can re-display
+ *  if there was already a pending update (avoids the IPC-before-listener race). */
+function getPendingUpdate() {
+  return pendingUpdate
+    ? { ...pendingUpdate, currentVersion: app.getVersion() }
+    : null;
 }
 
 function setupAutoUpdater() {
   if (isDev) return;
-  setTimeout(() => { void checkForUpdate(); }, 8_000);
-  setInterval(() => { void checkForUpdate(); }, UPDATE_CHECK_INTERVAL_MS);
+  // First check fires fast (3s — backend is usually ready by then).
+  setTimeout(() => { void checkForUpdate(); }, 3_000);
+  // Then every 30 minutes (was 4h — too long if the user works in short
+  // sessions and never sees the banner).
+  setInterval(() => { void checkForUpdate(); }, 30 * 60 * 1000);
+
+  // Re-check when the OS network comes back online.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.executeJavaScript(
+      "window.addEventListener('online', () => window.orElectron?.checkForUpdate?.());"
+    ).catch(() => {});
+  }
 }
 
 /* ── Update Installer ───────────────────────────────────────────────────
@@ -510,7 +578,23 @@ ipcMain.handle("or:getPaths", () => ({
 
 // Frontend kann manuellen Update-Check anstoßen
 ipcMain.handle("or:checkForUpdate", async () => {
-  return await checkForUpdate(false);
+  return await checkForUpdate({ manual: true });
+});
+
+// Frontend fragt beim Mounten nach hängenden Updates (löst die "IPC vor Listener"-Race)
+ipcMain.handle("or:getPendingUpdate", () => {
+  return getPendingUpdate();
+});
+
+// Status für die Einstellungs-Seite (Version + letzter Check)
+ipcMain.handle("or:getUpdateStatus", () => {
+  return {
+    currentVersion: app.getVersion(),
+    pendingUpdate,
+    lastCheckedAt,
+    lastCheckOutcome,
+    lastCheckError,
+  };
 });
 
 // Frontend öffnet die Release-Seite im Browser für manuellen Download
@@ -520,7 +604,7 @@ ipcMain.handle("or:openUpdatePage", (_e, url) => {
   }
 });
 
-// Frontend triggert vollautomatische Installation
+// Frontend triggert vollautomatische Installation (nur macOS)
 ipcMain.handle("or:installUpdate", async () => {
   try {
     return await performInstallUpdate();

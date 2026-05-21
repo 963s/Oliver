@@ -1,7 +1,7 @@
 {
   "name": "oliver-roos-friseur",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "workspaces": [
     "backend",
     "frontend"
@@ -20,7 +20,10 @@
     "electron:release": "npm run electron:build && node scripts/prepare-pack.mjs && electron-builder --publish always",
     "release:patch": "npm version patch -m \\\"Release v%s\\\" && git push --follow-tags",
     "release:minor": "npm version minor -m \\\"Release v%s\\\" && git push --follow-tags",
-    "release:major": "npm version major -m \\\"Release v%s\\\" && git push --follow-tags"
+    "release:major": "npm version major -m \\\"Release v%s\\\" && git push --follow-tags",
+    "setup:client":  "bash scripts/setup-ssh-key.sh",
+    "deploy:client": "bash scripts/deploy-client.sh",
+    "update:client": "ssh oliver-client 'bash -s' < scripts/update-client.sh"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",

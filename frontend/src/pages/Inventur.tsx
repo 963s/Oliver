@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, apiDelete } from "../api";
+import { EditProductModal, type EditableProduct } from "../components/ui/EditProductModal";
 
 type InventoryItem = {
   id: number;
@@ -15,6 +16,16 @@ type InventoryItem = {
   barcodeEan: string | null;
   barcodeUpc: string | null;
   minStockThresholdMl: number | null;
+  isRetail?: boolean;
+  usageType?: "retail" | "salon" | "both";
+  referenceNetPerMlCents?: number;
+  estimateVatRateBps?: number;
+};
+
+const USAGE_LABEL: Record<"retail" | "salon" | "both", string> = {
+  salon:  "Salon",
+  retail: "Verkauf",
+  both:   "Salon + Verkauf",
 };
 
 type View = "list" | "add-stock" | "add-product";
@@ -106,9 +117,12 @@ function InventoryList({
 function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [newMl, setNewMl] = useState(String(item.onHandMl));
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const usage = item.usageType ?? (item.isRetail ? "retail" : "salon");
   
   const low = item.minStockThresholdMl != null && item.onHandMl <= item.minStockThresholdMl;
   const empty = item.onHandMl <= 0;
@@ -168,11 +182,11 @@ function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="font-medium text-sm text-deep-charcoal/90 truncate">{item.name}</p>
-          {item.defaultUnitMl > 0 && (
-            <p className="text-[10px] text-deep-charcoal/35 mt-0.5">
-              Standardeinheit: {mlDisplay(item.defaultUnitMl)}
-            </p>
-          )}
+          <p className="text-[10px] text-deep-charcoal/35 mt-0.5">
+            <span className="inline-block px-1.5 border border-deep-charcoal/15 mr-2 font-medium uppercase tracking-wider">{USAGE_LABEL[usage]}</span>
+            {item.defaultUnitMl > 0 && `Einheit: ${mlDisplay(item.defaultUnitMl)}`}
+            {item.barcodeEan && <span className="ml-2 font-mono">EAN: {item.barcodeEan}</span>}
+          </p>
         </div>
         
         <div className="text-right shrink-0">
@@ -189,19 +203,26 @@ function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh
       {/* Action Buttons */}
       {!editing && (
         <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-deep-charcoal/5">
-          <button 
-            type="button" 
+          <button
+            type="button"
+            onClick={() => setEditModalOpen(true)}
+            className="text-[10px] uppercase tracking-[0.15em] text-deep-charcoal/50 hover:text-editorial-pulse transition"
+          >
+            Bearbeiten
+          </button>
+          <button
+            type="button"
             onClick={() => { setEditing(true); setNewMl(String(item.onHandMl)); }}
             className="text-[10px] uppercase tracking-[0.15em] text-deep-charcoal/50 hover:text-editorial-pulse transition"
           >
-            ✏️ Korrektur
+            Bestand-Korrektur
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleDelete}
             className="text-[10px] uppercase tracking-[0.15em] text-red-400/80 hover:text-red-600 transition"
           >
-            🗑️ Löschen
+            Löschen
           </button>
         </div>
       )}
@@ -230,16 +251,16 @@ function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh
             />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setEditing(false)}
               className="px-4 py-2 text-[10px] uppercase tracking-wider text-deep-charcoal/50 bg-gray-100 hover:bg-gray-200 transition"
               disabled={busy}
             >
               Abbrechen
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleAdjust}
               className="px-4 py-2 text-[10px] uppercase tracking-wider text-white bg-editorial-pulse hover:bg-editorial-pulse/90 transition"
               disabled={busy}
@@ -249,6 +270,24 @@ function InventoryListItem({ item, onRefresh }: { item: InventoryItem; onRefresh
           </div>
         </div>
       )}
+
+      <EditProductModal
+        open={editModalOpen}
+        product={{
+          id: item.id,
+          name: item.name,
+          barcodeEan: item.barcodeEan,
+          defaultUnitMl: item.defaultUnitMl,
+          onHandMl: item.onHandMl,
+          isRetail: item.isRetail ?? false,
+          usageType: usage,
+          referenceNetPerMlCents: item.referenceNetPerMlCents ?? 0,
+          estimateVatRateBps: item.estimateVatRateBps ?? 1900,
+          minStockThresholdMl: item.minStockThresholdMl,
+        } as EditableProduct}
+        onClose={() => setEditModalOpen(false)}
+        onSaved={() => onRefresh()}
+      />
     </div>
   );
 }

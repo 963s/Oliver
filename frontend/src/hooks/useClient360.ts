@@ -9,6 +9,11 @@ type ClientRow = {
   lastName: string | null;
   phone: string | null;
   email: string | null;
+  street?: string | null;
+  houseNumber?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   anonymizedAt: string | null;
   patchTestAt?: string | null;
   hospitalityDrink?: string | null;

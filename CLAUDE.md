@@ -21,8 +21,13 @@ Offline-first Electron desktop app for a German barbershop (appointment + invent
 | Local pack (no publish) | `npm run electron:pack` |
 | **Publish release to GitHub** | `npm run electron:release` |
 | Bump patch + push tags | `npm run release:patch` |
+| **One-step setup (SSH key on client)** | `npm run setup:client` |
+| **One-step deploy (build + publish + install on client)** | `npm run deploy:client` |
+| Just update the client (no rebuild) | `npm run update:client` |
 
-`electron-builder` publishes to GitHub Releases on `963s/Oliver`. The installed app polls every ~4h via `electron-updater` and installs in the background. **Bumping `version` in root `package.json` is what triggers the update on end-user machines** — do not forget it.
+`electron-builder` publishes to GitHub Releases on `963s/Oliver`. Releases come out as **draft** — `scripts/deploy-client.sh` promotes the latest one to `published` via the GitHub API so `electron-updater` / the in-app banner can see it.
+
+**The app is not Apple-signed** (no Developer ID). Consequence: macOS Gatekeeper blocks any kind of background auto-install. The in-app `UpdateBanner` only links the user to the manual DMG download. The **only fully-automated path** is `npm run deploy:client`, which SSHes into the salon Mac with a dedicated ed25519 key (set up once via `npm run setup:client`) and runs `scripts/update-client.sh` to replace the .app + strip quarantine.
 
 The GitHub token for publishing must be passed via the `GH_TOKEN` env var at release time. **Never commit it.** If you see a token in chat, treat it as compromised and tell the user to revoke it.
 
@@ -41,7 +46,13 @@ The GitHub token for publishing must be passed via the `GH_TOKEN` env var at rel
 - Language: code/UI strings are German (`Zählkorrektur`, etc.). Comments in code can be English.
 - `DECISIONS.md` is the long-form rationale log — append, don't rewrite.
 
+## Salon machine
+
+- Target: **Intel iMac** (older, x64 only — not Apple Silicon). Build both arches but only x64 DMG (`Oliver Roos Friseur-X.Y.Z.dmg`, **no** `-arm64`) goes to the salon.
+- SSH alias: `oliver-client` (configured by `scripts/setup-ssh-key.sh`). Defaults: user `Oli`, host `100.109.12.48` (Tailscale).
+- DB lives at `~/Library/Application Support/Oliver Roos Friseur/salon.db` on the client. `update-client.sh` searches all `/Users/*/Library/...` paths in case the macOS account was renamed and the home dir didn't move with it.
+
 ## Repo
 
-- GitHub: `963s/Oliver` (private). Releases drive auto-update.
+- GitHub: `963s/Oliver` (private). Releases drive the in-app update banner.
 - Default branch: `main`.

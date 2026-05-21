@@ -9,6 +9,7 @@ import { luxurySpring } from "../lib/motionPresets";
 import { useUiShellStore } from "../store/uiShellStore";
 import { LuxuryDatePicker } from "../components/ui/LuxuryDatePicker";
 import { luxuryButtonGhost } from "../lib/luxuryUi";
+import { EditClientModal } from "../components/ui/EditClientModal";
 
 function formatEur(cents: number): string {
   return new Intl.NumberFormat("de-DE", {
@@ -48,6 +49,7 @@ export function ClientProfile() {
   const [busyAnonymize, setBusyAnonymize] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [busyOps, setBusyOps] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [patchDateStr, setPatchDateStr] = useState("");
   const [hospitalityDrink, setHospitalityDrink] = useState("");
@@ -182,6 +184,15 @@ export function ClientProfile() {
                   {privacyMode ? "Kundenmodus: An" : "Kundenmodus: Aus"}
                 </button>
               )}
+              {!anonymized && (
+                <button
+                  type="button"
+                  className="min-h-touch border border-oak-wood bg-oak-wood/20 px-4 text-sm font-semibold text-deep-charcoal"
+                  onClick={() => setEditOpen(true)}
+                >
+                  Bearbeiten
+                </button>
+              )}
               <button
                 type="button"
                 className="min-h-touch border border-brushed-chrome px-4 text-sm font-semibold"
@@ -217,6 +228,40 @@ export function ClientProfile() {
               <p>{formatEur(data?.totalSpendCents ?? 0)}</p>
             </div>
           </div>
+
+          {/* Adresse & Kontakt */}
+          {!anonymized && data?.client && (
+            <div
+              className={`mt-3 border-t border-brushed-chrome pt-3 ${privacyBlur(privacyMode && client360Features.privacyToggle)}`}
+            >
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-brushed-chrome">
+                Adresse & Kontakt
+              </p>
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <div className="border border-brushed-chrome/40 px-3 py-2">
+                  <p className="text-xs text-brushed-chrome">Telefon</p>
+                  <p>{data.client.phone || "—"}</p>
+                </div>
+                <div className="border border-brushed-chrome/40 px-3 py-2">
+                  <p className="text-xs text-brushed-chrome">E-Mail</p>
+                  <p className="truncate">{data.client.email || "—"}</p>
+                </div>
+                <div className="border border-brushed-chrome/40 px-3 py-2 sm:col-span-2">
+                  <p className="text-xs text-brushed-chrome">Anschrift</p>
+                  {data.client.street || data.client.city ? (
+                    <p>
+                      {[data.client.street, data.client.houseNumber].filter(Boolean).join(" ")}
+                      {(data.client.street || data.client.houseNumber) && (data.client.postalCode || data.client.city) && ", "}
+                      {[data.client.postalCode, data.client.city].filter(Boolean).join(" ")}
+                      {data.client.country ? `, ${data.client.country}` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-brushed-chrome">— Nicht erfasst —</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {!anonymized && (
             <section className="mt-4 space-y-3 border-t border-brushed-chrome pt-4">
@@ -466,6 +511,26 @@ export function ClientProfile() {
           )}
         </div>
       </motion.aside>
+
+      {data?.client && (
+        <EditClientModal
+          open={editOpen}
+          client={{
+            id: data.client.id,
+            firstName: data.client.firstName ?? "",
+            lastName: data.client.lastName ?? "",
+            email: data.client.email,
+            phone: data.client.phone,
+            street: data.client.street,
+            houseNumber: data.client.houseNumber,
+            postalCode: data.client.postalCode,
+            city: data.client.city,
+            country: data.client.country,
+          }}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { void refresh(); }}
+        />
+      )}
     </div>
   );
 }

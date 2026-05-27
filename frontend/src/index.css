@@ -2,8 +2,7 @@
 @config "../tailwind.config.js";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   APP THEME TOKENS — Single source of truth.
-   Light = :root   |   Dark = html.dark
+   APP THEME TOKENS — Single source of truth (light only since v1.7.0).
    All Tailwind semantic colors point to these vars via tailwind.config.js.
    Change one variable → every component updates automatically.
 ───────────────────────────────────────────────────────────────────────────── */
@@ -43,29 +42,6 @@
   /* ── Editorial pulse accent per route ── */
   --editorial-pulse:     #D4AF37;
   --editorial-pulse-dim: rgba(212, 175, 55, 0.14);
-}
-
-/* ── DARK MODE ────────────────────────────────────────────────────────────── */
-html.dark {
-  color-scheme: dark;
-
-  --app-bg:         #0E0D0B;
-  --app-surface:    #1A1815;
-  --app-surface-2:  #242118;
-  --app-void:       #2E2A1F;
-  --app-chrome:     #3A3528;
-
-  --app-text:        #EDE8DF;
-  --app-text-muted:  rgba(237,232,223,0.55);
-  --app-text-subtle: rgba(237,232,223,0.35);
-
-  --app-accent:     #D4AF37;
-  --app-accent-dim: rgba(212,175,55,0.16);
-
-  --app-border:        rgba(212,175,55,0.10);
-  --app-border-strong: rgba(212,175,55,0.18);
-  --app-shadow:     0 1px 3px rgba(0,0,0,0.4),  0 4px 16px rgba(0,0,0,0.3);
-  --app-shadow-lg:  0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* ── Pulse colors per route ───────────────────────────────────────────────── */
@@ -205,10 +181,6 @@ input, textarea, [contenteditable="true"] {
     background-position: right 1rem center;
     padding-right: 2.75rem;
   }
-  html.dark select.luxury-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(237,232,223,0.45)' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-  }
-
   /* Globale Lösung: alle <select> bekommen den gleichen einheitlichen Pfeil,
      auch wenn die Klasse .luxury-select fehlt. Verhindert doppelte Pfeile überall. */
   select:not([multiple]) {
@@ -222,11 +194,6 @@ input, textarea, [contenteditable="true"] {
     filter: opacity(0.45);
     cursor: pointer;
   }
-  html.dark input[type="datetime-local"].luxury-field::-webkit-calendar-picker-indicator,
-  html.dark input[type="date"].luxury-field::-webkit-calendar-picker-indicator {
-    filter: invert(1) opacity(0.45);
-  }
-
   input[type="number"].luxury-field { -moz-appearance: textfield; }
   input[type="number"].luxury-field::-webkit-outer-spin-button,
   input[type="number"].luxury-field::-webkit-inner-spin-button {
@@ -257,70 +224,6 @@ input, textarea, [contenteditable="true"] {
   .desktop-hover { transition: background-color 0.15s ease, border-color 0.15s ease; }
   .desktop-hover:hover { background-color: var(--app-border); }
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   DARK MODE OVERRIDES
-   Covers Tailwind gray-* utilities not mapped via CSS-variable tokens.
-───────────────────────────────────────────────────────────────────────────── */
-
-/* Scrollbar */
-html.dark * { scrollbar-color: rgba(212,175,55,0.15) rgba(0,0,0,0.2); }
-html.dark *::-webkit-scrollbar-track  { background: rgba(0,0,0,0.2); }
-html.dark *::-webkit-scrollbar-thumb  { background: rgba(212,175,55,0.15); border: 1.5px solid rgba(0,0,0,0.4); }
-html.dark *::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.28); }
-
-/* White backgrounds → surface */
-html.dark .bg-white       { background-color: var(--app-surface) !important; }
-html.dark .bg-white\/80   { background-color: color-mix(in srgb,var(--app-surface) 80%,transparent) !important; }
-html.dark .bg-white\/95   { background-color: color-mix(in srgb,var(--app-surface) 95%,transparent) !important; }
-html.dark .bg-white\/90   { background-color: color-mix(in srgb,var(--app-surface) 90%,transparent) !important; }
-html.dark .bg-white\/60   { background-color: color-mix(in srgb,var(--app-surface) 60%,transparent) !important; }
-
-/* Gray scale → surface tokens */
-html.dark .bg-gray-50     { background-color: var(--app-bg) !important; }
-html.dark .bg-gray-50\/90 { background-color: color-mix(in srgb,var(--app-bg) 90%,transparent) !important; }
-html.dark .bg-gray-100    { background-color: var(--app-surface) !important; }
-html.dark .bg-gray-100\/40{ background-color: color-mix(in srgb,var(--app-surface) 40%,transparent) !important; }
-html.dark .bg-gray-100\/50{ background-color: color-mix(in srgb,var(--app-surface) 50%,transparent) !important; }
-html.dark .bg-gray-100\/60{ background-color: color-mix(in srgb,var(--app-surface) 60%,transparent) !important; }
-html.dark .bg-gray-100\/70{ background-color: color-mix(in srgb,var(--app-surface) 70%,transparent) !important; }
-html.dark .bg-gray-100\/80{ background-color: color-mix(in srgb,var(--app-surface) 80%,transparent) !important; }
-html.dark .bg-gray-200    { background-color: var(--app-surface-2) !important; }
-html.dark .bg-gray-200\/40{ background-color: color-mix(in srgb,var(--app-surface-2) 40%,transparent) !important; }
-html.dark .bg-gray-200\/50{ background-color: color-mix(in srgb,var(--app-surface-2) 50%,transparent) !important; }
-html.dark .bg-gray-200\/60{ background-color: color-mix(in srgb,var(--app-surface-2) 60%,transparent) !important; }
-html.dark .bg-gray-200\/70{ background-color: color-mix(in srgb,var(--app-surface-2) 70%,transparent) !important; }
-html.dark .bg-gray-200\/80{ background-color: color-mix(in srgb,var(--app-surface-2) 80%,transparent) !important; }
-html.dark .bg-gray-300\/80{ background-color: color-mix(in srgb,var(--app-void) 80%,transparent) !important; }
-html.dark .bg-gray-800    { background-color: var(--app-surface-2) !important; }
-
-/* Text */
-html.dark .text-gray-400  { color: var(--app-text-muted) !important; }
-html.dark .text-gray-500  { color: var(--app-text-muted) !important; }
-html.dark .text-gray-600  { color: var(--app-text-muted) !important; }
-html.dark .text-gray-700  { color: var(--app-text) !important; }
-html.dark .text-gray-800  { color: var(--app-text) !important; }
-html.dark .text-gray-900  { color: var(--app-text) !important; }
-
-/* Borders */
-html.dark .border-gray-100 { border-color: var(--app-border) !important; }
-html.dark .border-gray-200 { border-color: var(--app-border) !important; }
-html.dark .border-gray-300 { border-color: var(--app-border-strong) !important; }
-html.dark .border-black\/10 { border-color: var(--app-border) !important; }
-html.dark .border-black\/14 { border-color: var(--app-border) !important; }
-html.dark .border-black\/20 { border-color: var(--app-border-strong) !important; }
-
-/* Hover utility */
-html.dark .desktop-hover:hover { background-color: rgba(212,175,55,0.06); }
-
-/* Ambient gradient — gold-tinted in dark */
-html.dark .ambient-silk {
-  background: radial-gradient(ellipse 90% 55% at 85% -10%, rgba(212,175,55,0.07), transparent 50%),
-              radial-gradient(ellipse 70% 50% at 10% 110%, rgba(212,175,55,0.04), transparent 45%);
-}
-
-/* luxury-field in dark */
-html.dark .luxury-field { color-scheme: dark; }
 
 @media print {
   .no-print { display: none !important; }

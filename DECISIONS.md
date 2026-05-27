@@ -184,3 +184,79 @@ Sections:
 ---
 
 *Update this file when changing barcode libraries, **Kostenvoranschlag** legal wording, TSE path, bonus policy, or **canonical workflow** / freeze policy.*
+
+---
+
+## v1.7.0 — Infrastructure hardening, Client 360° engine, single-theme UI
+
+Released 2026-05-27. Bundles four chapters of work; see commit body for the full
+delta. Highlights:
+
+### Infrastructure & reliability
+- **Backend supervisor** (`electron/main.mjs`): restart loop with exponential
+  backoff (max 5 crashes per 60 s → user-facing dialog) and a per-day rotating
+  log file in `userData/logs/backend-YYYY-MM-DD.log` (7-day retention).
+- **Winston logger** in the backend (`backend/src/lib/logger.ts`): JSON-lines
+  file sink + dev-only TTY pretty-print. `LOG_DIR` env wired from Electron.
+- **Error handler rewrite** (`backend/src/lib/errors/expressErrorHandler.ts`):
+  production responses sanitized to `{ error, code }`; dev keeps stack+message.
+  Zod-like and Drizzle/SQLite errors routed through dedicated branches.
+- **Soft-delete helpers** (`backend/src/lib/db/softDelete.ts`): `whereNotDeleted`
+  fragment + `softDelete()` with built-in audit pairing. Applied across all 7
+  appointment query sites + defensive guard in `checkoutPipeline`.
+- **SQLite tuning**: WAL, busy_timeout, synchronous=NORMAL, foreign_keys=ON,
+  32 MB cache, MEMORY temp store, 128 MB mmap. Startup `PRAGMA integrity_check`
+  logs `sqlite_integrity_ok` or a full corruption report.
+- **Daily SQLite backup** in Electron main: VACUUM INTO with tempfile+rename
+  atomic publish, 14-day retention, runs 20 s after boot and every 24 h.
+
+### Client Memory Engine
+- **Migration 0034** (`client_intelligence`): adds `client_hair_profiles`,
+  `client_visit_records`, `client_preferences`, `client_tags` with
+  composite indexes.
+- **Migration 0035** (`client_stats_cache`): denormalized header stats for
+  Client 360° + 4 partial indexes (`appointments.deleted_at IS NULL`,
+  `sessions.status = 'closed'`).
+- **Client 360° API** (`backend/src/routes/client360Routes.ts`): 11 endpoints
+  for the full intelligence object, hair-profile upsert, visit-records,
+  tags, preferences, birthday-today, at-risk segmentation.
+- **Reliability score** (`backend/src/lib/clientCrm.ts`): clamp-and-cap
+  formula with -15/no-show, -8/cancel, +2/on-time, hard-clamped to [0,100].
+
+### Frontend KundenBrowser
+- New page (`frontend/src/pages/KundenBrowser.tsx`, route `/kunden`).
+  Offline-first: single fetch of up to 1000 active clients on mount; all
+  filtering (free-text + German-alphabet letter chips) runs in-memory via
+  `useMemo`. Split-view layout with the hero "letzte Rezeptur" block in
+  gold + monospaced typography.
+- Backend `/api/clients/search` now treats `q` as optional and returns
+  alphabetically sorted rows (max 1000).
+- Sidebar link `👥 Kunden` under the **Täglich** group in the dashboard.
+
+### UI simplification — single light theme
+- Dark mode removed entirely (theme hook, ThemeToggle, `html.dark` CSS,
+  Tailwind `darkMode: false`). Salon owner used only one mode; the toggle
+  was operator friction. Stale `or:theme` localStorage is cleared on boot.
+
+### Testing & observability
+- Vitest set up in `backend/` (config + scripts). 40 tests pass:
+  `softDelete` (9), `clientCrm.reliabilityScore` + name/escape (16),
+  `germanVat.computeLine` 7%/19% + rounding + invariants (15).
+
+### Cleanup
+- Deleted root-level dead files: `changeTheme[1-4].js`, empty `.gitkeep`,
+  empty `PROJECT_MEMORY.md` (the canonical 191 KB version stays in `docs/`).
+- **Kept** `src-tauri/` — investigation revealed live Tauri references in
+  `frontend/src/hooks/useTauriSqliteBackup.ts`, `externalFortressBackup.ts`,
+  `EmbeddedDesktopGate.tsx`, `AdminSettings.tsx` (deliberate cross-platform
+  hook, not dead code).
+- Added `backend/.env.example` and fixed `.gitignore` (`.env.*` previously
+  excluded `.env.example` by mistake).
+
+### Pending follow-ups
+- PWA service worker hardening (NetworkFirst for `/api`, offline fallback page).
+- `useNetworkStatus` hook + `OfflineBanner` component (Intel Mac: no blur).
+- Wire `refreshClientStats` to checkout and appointment-status-change paths.
+- Weekly `PRAGMA optimize` scheduler.
+
+

@@ -1,6 +1,7 @@
 import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema.js";
+import { whereNotDeleted } from "../db/softDelete.js";
 import { berlinYmdFromMs } from "../../services/availabilityService.js";
 import { invoiceBerlinYmd } from "./invoiceBerlinDate.js";
 import { listMonitoredItemsAtOrBelowThreshold } from "../lowStockService.js";
@@ -61,7 +62,7 @@ export function buildChefBriefing(
     .from(schema.appointments)
     .where(
       and(
-        isNull(schema.appointments.deletedAt),
+        whereNotDeleted(schema.appointments),
         gte(schema.appointments.startAt, scanFrom),
         lte(schema.appointments.startAt, apptScanTo),
       ),

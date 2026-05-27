@@ -9,6 +9,7 @@ import { registerGlobalErrorHandler } from "./lib/errors/expressErrorHandler.js"
 import { registerApi, ensureSeedData } from "./routes/api.js";
 import { ensureEmbeddedTrustedDevice } from "./lib/embeddedTrustedDevice.js";
 import { isDevBrowserDeviceRouteEnabled } from "./lib/auth/deviceAuth.js";
+import { logger, getLogDir } from "./lib/logger.js";
 // Demo seed disabled — production mode (real salon data only)
 
 const app = express();
@@ -36,7 +37,7 @@ if (process.env.SERVE_SPA) {
       res.sendFile(join(staticDir, "index.html"));
     });
   } else {
-    console.warn("SERVE_SPA: frontend dist not found at", staticDir);
+    logger.warn("serve_spa_dist_not_found", { staticDir });
   }
 }
 
@@ -44,10 +45,11 @@ registerGlobalErrorHandler(app);
 
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
-  console.log(`Oliver Roos Frisuren — API auf Port ${port}`);
+  logger.info("api_listening", { port, logDir: getLogDir() });
   if (isDevBrowserDeviceRouteEnabled()) {
-    console.log(
-      "[dev] POST /api/auth/dev-pair-browser — trust this browser for PIN login (off in production or when OLIVER_ROOS_DISABLE_DEV_DEVICE=1).",
-    );
+    logger.info("dev_pair_browser_enabled", {
+      path: "/api/auth/dev-pair-browser",
+      note: "trusts the calling browser for PIN login; off in production or when OLIVER_ROOS_DISABLE_DEV_DEVICE=1",
+    });
   }
 });

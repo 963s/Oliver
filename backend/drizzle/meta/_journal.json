@@ -232,6 +232,20 @@
       "when": 1779916000000,
       "tag": "0033_inventory_items_active",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1779916500000,
+      "tag": "0034_client_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1779917000000,
+      "tag": "0035_client_stats_cache",
+      "breakpoints": true
     }
   ]
 }

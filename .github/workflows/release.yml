@@ -1,9 +1,13 @@
-name: Build and Release
+name: Build and Release (manual)
 
+# Releases are built and published locally via `npm run electron:release`
+# from the developer's Mac (needs better-sqlite3 native rebuild for the
+# target arch). The default GITHUB_TOKEN does not have permission to
+# publish to a private repo's Releases anyway, so the auto-on-tag-push
+# trigger was always failing. Kept the job here for manual dispatch
+# in case CI signing ever comes online.
 on:
-  push:
-    tags:
-      - 'v*' # Trigger on tags matching v*, e.g. v1.0.0, v20.15.10
+  workflow_dispatch:
 
 jobs:
   release:

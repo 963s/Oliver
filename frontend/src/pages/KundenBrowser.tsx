@@ -1,4 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Eye,
+  Keyboard,
+  MoreVertical,
+  Pencil,
+  Delete as BackspaceIcon,
+  Trash2,
+  X,
+} from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../api";
 import { useClient360, type Client360Data } from "../hooks/useClient360";
 import { formatEurDeFromCents } from "../lib/formatMoney";
@@ -43,13 +52,14 @@ interface OpsFields {
 
 /* ─── Constants & helpers ──────────────────────────────────────────────── */
 
+/** German alphabet for the on-screen keyboard. Ä/Ö/Ü/ß are separate keys
+ *  because German staff type them often and the physical iMac keyboard
+ *  hides them behind option-combos. */
 const GERMAN_ALPHABET = [
   "A", "Ä", "B", "C", "D", "E", "F", "G", "H", "I",
   "J", "K", "L", "M", "N", "O", "Ö", "P", "Q", "R",
-  "S", "T", "U", "Ü", "V", "W", "X", "Y", "Z",
+  "S", "T", "U", "Ü", "V", "W", "X", "Y", "Z", "ß",
 ] as const;
-
-const LETTER_ALL = "Alle";
 
 function normalizeForSort(s: string): string {
   return s
@@ -73,15 +83,6 @@ function firstLetterForSort(c: ClientRow): string {
   return first;
 }
 
-function matchesLetter(c: ClientRow, letter: string): boolean {
-  if (letter === LETTER_ALL) return true;
-  const first = firstLetterForSort(c);
-  if (letter === "A") return first === "A" && c.name.charAt(0).toUpperCase() !== "Ä";
-  if (letter === "O") return first === "O" && c.name.charAt(0).toUpperCase() !== "Ö";
-  if (letter === "U") return first === "U" && c.name.charAt(0).toUpperCase() !== "Ü";
-  return first === letter;
-}
-
 function matchesSearch(c: ClientRow, q: string): boolean {
   if (!q) return true;
   const needle = q.toLowerCase();
@@ -103,8 +104,7 @@ export default function KundenBrowser(): JSX.Element {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [letter, setLetter] = useState<string>(LETTER_ALL);
-  const [letterBarOpen, setLetterBarOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [initialTab, setInitialTab] = useState<TabKey>("rezepturen");
   const [deleteState, setDeleteState] = useState<DeleteState>({ stage: "closed" });
@@ -120,16 +120,19 @@ export default function KundenBrowser(): JSX.Element {
     }
   }, []);
 
-  /** Auto-collapse the alphabet bar as soon as the user starts typing —
-   *  the on-screen "keyboard" effect goes away while they search. */
+  /** Letter keys on the on-screen keyboard append to the search input, so the
+   *  salon owner can either type with the real keyboard or tap letters. */
   function handleSearchChange(next: string) {
     setSearch(next);
-    if (next.length > 0 && letterBarOpen) setLetterBarOpen(false);
   }
-  /** Tapping a letter implicitly opens the bar and clears free-text. */
-  function handleLetterChange(next: string) {
-    setLetter(next);
-    if (next !== LETTER_ALL) setSearch("");
+  function pressKey(ch: string) {
+    setSearch((prev) => prev + ch);
+  }
+  function pressBackspace() {
+    setSearch((prev) => prev.slice(0, -1));
+  }
+  function clearSearch() {
+    setSearch("");
   }
 
   // Load once, cache for the session. Subsequent letter/search interactions
@@ -157,9 +160,7 @@ export default function KundenBrowser(): JSX.Element {
   }, []);
 
   const filtered = useMemo(() => {
-    const out = clients
-      .filter((c) => matchesLetter(c, letter))
-      .filter((c) => matchesSearch(c, search));
+    const out = clients.filter((c) => matchesSearch(c, search));
     out.sort((a, b) =>
       normalizeForSort(displayName(a)).localeCompare(
         normalizeForSort(displayName(b)),
@@ -167,7 +168,7 @@ export default function KundenBrowser(): JSX.Element {
       ),
     );
     return out;
-  }, [clients, letter, search]);
+  }, [clients, search]);
 
   const client360 = useClient360(selectedId);
 
@@ -222,10 +223,11 @@ export default function KundenBrowser(): JSX.Element {
         error={listError}
         search={search}
         onSearch={handleSearchChange}
-        letter={letter}
-        onLetter={handleLetterChange}
-        letterBarOpen={letterBarOpen}
-        onToggleLetterBar={() => setLetterBarOpen((v) => !v)}
+        onClearSearch={clearSearch}
+        keyboardOpen={keyboardOpen}
+        onToggleKeyboard={() => setKeyboardOpen((v) => !v)}
+        onPressKey={pressKey}
+        onPressBackspace={pressBackspace}
         selectedId={selectedId}
         onSelect={(id) => openClient(id)}
         onEditClient={(id) => openClient(id, "bearbeiten")}
@@ -281,10 +283,11 @@ interface LeftPanelProps {
   error: string | null;
   search: string;
   onSearch: (s: string) => void;
-  letter: string;
-  onLetter: (l: string) => void;
-  letterBarOpen: boolean;
-  onToggleLetterBar: () => void;
+  onClearSearch: () => void;
+  keyboardOpen: boolean;
+  onToggleKeyboard: () => void;
+  onPressKey: (ch: string) => void;
+  onPressBackspace: () => void;
   selectedId: number | null;
   onSelect: (id: number) => void;
   onEditClient: (id: number) => void;
@@ -301,43 +304,46 @@ function LeftPanel(p: LeftPanelProps): JSX.Element {
       <div className="border-b-2 border-[var(--app-border-strong)] px-4 py-4">
         <label className="block text-base font-medium text-[var(--app-text)]">
           <span className="sr-only">Kunde suchen</span>
-          <input
-            type="search"
-            placeholder="Name oder Telefon suchen…"
-            value={p.search}
-            onChange={(e) => p.onSearch(e.target.value)}
-            className="h-14 w-full rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-4 text-lg text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
-          />
+          <div className="relative">
+            <input
+              type="search"
+              placeholder="Name oder Telefon suchen…"
+              value={p.search}
+              onChange={(e) => p.onSearch(e.target.value)}
+              className="h-14 w-full rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-4 pr-10 text-lg text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
+            />
+            {p.search.length > 0 && (
+              <button
+                type="button"
+                onClick={p.onClearSearch}
+                aria-label="Suche löschen"
+                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--app-text-subtle)] desktop-hover"
+              >
+                <X size={20} strokeWidth={2} />
+              </button>
+            )}
+          </div>
         </label>
-        <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="mt-2">
           <button
             type="button"
-            onClick={p.onToggleLetterBar}
-            aria-expanded={p.letterBarOpen}
-            aria-controls="letter-bar"
+            onClick={p.onToggleKeyboard}
+            aria-expanded={p.keyboardOpen}
+            aria-controls="virtual-keyboard"
             className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-sm font-medium text-[var(--app-text)] desktop-hover"
           >
-            <span aria-hidden="true">🔤</span>
-            <span>{p.letterBarOpen ? "Alphabet ausblenden" : "Nach Buchstaben filtern"}</span>
-            {p.letter !== LETTER_ALL && (
-              <span className="ml-1 rounded bg-[var(--editorial-pulse)] px-1.5 text-xs font-bold text-white">
-                {p.letter}
-              </span>
-            )}
+            <Keyboard size={16} strokeWidth={1.75} />
+            <span>{p.keyboardOpen ? "Tastatur ausblenden" : "Tastatur einblenden"}</span>
           </button>
-          {p.letter !== LETTER_ALL && (
-            <button
-              type="button"
-              onClick={() => p.onLetter(LETTER_ALL)}
-              className="min-h-10 rounded-md px-2 text-sm text-[var(--app-text-subtle)] desktop-hover"
-            >
-              Filter löschen
-            </button>
-          )}
         </div>
       </div>
 
-      {p.letterBarOpen && <LetterBar value={p.letter} onChange={p.onLetter} />}
+      {p.keyboardOpen && (
+        <VirtualKeyboard
+          onPressKey={p.onPressKey}
+          onPressBackspace={p.onPressBackspace}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {p.loading ? (
@@ -380,36 +386,47 @@ function LeftPanel(p: LeftPanelProps): JSX.Element {
 
 /* ─── Letter filter bar ────────────────────────────────────────────────── */
 
-function LetterBar({
-  value,
-  onChange,
+/**
+ * VirtualKeyboard — on-screen German alphabet that types into the search input.
+ * Replaces the previous "letter filter chips" — now each tap is equivalent
+ * to typing the letter on a physical keyboard. The Backspace key removes the
+ * last character. The salon owner can type names with the mouse alone.
+ */
+function VirtualKeyboard({
+  onPressKey,
+  onPressBackspace,
 }: {
-  value: string;
-  onChange: (l: string) => void;
+  onPressKey: (ch: string) => void;
+  onPressBackspace: () => void;
 }): JSX.Element {
-  const cells = useMemo(() => [LETTER_ALL, ...GERMAN_ALPHABET], []);
   return (
-    <div className="border-b border-[var(--app-border)] px-2 py-2">
-      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Alphabetisch filtern">
-        {cells.map((letter) => {
-          const active = value === letter;
-          return (
-            <button
-              key={letter}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(letter)}
-              className={`min-h-12 min-w-12 rounded-md border px-3 text-base font-medium ${
-                active
-                  ? "border-[var(--editorial-pulse)] bg-[var(--editorial-pulse)] text-white"
-                  : "border-[var(--app-border-strong)] bg-[var(--app-bg)] text-[var(--app-text)] desktop-hover"
-              }`}
-            >
-              {letter}
-            </button>
-          );
-        })}
+    <div
+      id="virtual-keyboard"
+      className="border-b-2 border-[var(--app-border-strong)] bg-[var(--app-surface-2)] px-2 py-2"
+      role="group"
+      aria-label="Bildschirmtastatur"
+    >
+      <div className="flex flex-wrap gap-1.5">
+        {GERMAN_ALPHABET.map((letter) => (
+          <button
+            key={letter}
+            type="button"
+            onClick={() => onPressKey(letter)}
+            aria-label={`Buchstabe ${letter} einfügen`}
+            className="min-h-12 min-w-[3rem] rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-base font-medium text-[var(--app-text)] desktop-hover active:bg-[var(--editorial-pulse)]/15"
+          >
+            {letter}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onPressBackspace}
+          aria-label="Letztes Zeichen löschen"
+          className="ml-auto inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-base font-medium text-[var(--app-text)] desktop-hover"
+        >
+          <BackspaceIcon size={18} strokeWidth={1.75} />
+          <span>Löschen</span>
+        </button>
       </div>
     </div>
   );
@@ -636,8 +653,8 @@ function TabBar({
   value: TabKey;
   onChange: (k: TabKey) => void;
 }): JSX.Element {
-  const tabs: Array<{ k: TabKey; label: string }> = [
-    { k: "bearbeiten", label: "✎ Bearbeiten" },
+  const tabs: Array<{ k: TabKey; icon?: React.ReactNode; label: string }> = [
+    { k: "bearbeiten", icon: <Pencil size={16} strokeWidth={1.75} />, label: "Bearbeiten" },
     { k: "rezepturen", label: "Rezepturen" },
     { k: "notizen", label: "Notizen" },
     { k: "praeferenzen", label: "Besuche & Präferenzen" },
@@ -657,13 +674,14 @@ function TabBar({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(t.k)}
-            className={`min-h-12 px-5 text-base font-medium ${
+            className={`inline-flex min-h-12 items-center gap-2 px-5 text-base font-medium ${
               active
                 ? "border-b-2 border-[var(--editorial-pulse)] text-[var(--app-text)]"
                 : "text-[var(--app-text-subtle)] desktop-hover"
             }`}
           >
-            {t.label}
+            {t.icon}
+            <span>{t.label}</span>
           </button>
         );
       })}
@@ -1346,9 +1364,9 @@ function ClientListRow({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           aria-label="Aktionen für diesen Kunden"
-          className="flex w-10 shrink-0 items-center justify-center border-l border-[var(--app-border)] text-xl text-[var(--app-text-subtle)] desktop-hover"
+          className="flex w-11 shrink-0 items-center justify-center border-l border-[var(--app-border)] text-[var(--app-text-subtle)] desktop-hover"
         >
-          ⋮
+          <MoreVertical size={20} strokeWidth={1.75} />
         </button>
       </div>
 
@@ -1362,7 +1380,7 @@ function ClientListRow({
               setMenuOpen(false);
               onOpen();
             }}
-            icon="👁"
+            icon={<Eye size={18} strokeWidth={1.75} />}
             label="Öffnen"
           />
           <RowMenuItem
@@ -1370,7 +1388,7 @@ function ClientListRow({
               setMenuOpen(false);
               onEdit();
             }}
-            icon="✎"
+            icon={<Pencil size={18} strokeWidth={1.75} />}
             label="Bearbeiten"
             disabled={isAnonymized}
           />
@@ -1380,7 +1398,7 @@ function ClientListRow({
                 setMenuOpen(false);
                 onDelete();
               }}
-              icon="🗑"
+              icon={<Trash2 size={18} strokeWidth={1.75} />}
               label="Löschen"
               disabled={isAnonymized}
               danger
@@ -1400,7 +1418,7 @@ function RowMenuItem({
   danger,
 }: {
   onClick: () => void;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   disabled?: boolean;
   danger?: boolean;
@@ -1415,7 +1433,7 @@ function RowMenuItem({
         danger ? "text-red-700" : "text-[var(--app-text)]"
       }`}
     >
-      <span aria-hidden="true" className="w-5 text-center">{icon}</span>
+      <span aria-hidden="true" className="flex w-5 justify-center">{icon}</span>
       <span>{label}</span>
     </button>
   );

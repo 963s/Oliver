@@ -14,20 +14,20 @@
   --app-void:       #E0D8CB;   /* Deepest neutral */
   --app-chrome:     #D2C9BA;   /* Borders, chrome elements */
 
-  /* ── Text hierarchy ── */
-  --app-text:       #2A2520;
-  --app-text-muted: rgba(42, 37, 32, 0.55);
-  --app-text-subtle:rgba(42, 37, 32, 0.35);
+  /* ── Text hierarchy — bumped contrast (v1.7.2) for elderly readability ── */
+  --app-text:       #1A1612;
+  --app-text-muted: rgba(26, 22, 18, 0.70);
+  --app-text-subtle:rgba(26, 22, 18, 0.55);
 
-  /* ── Accent: champagne gold (identical in both modes) ── */
+  /* ── Accent: champagne gold ── */
   --app-accent:     #D4AF37;
-  --app-accent-dim: rgba(212, 175, 55, 0.14);
+  --app-accent-dim: rgba(212, 175, 55, 0.18);
 
-  /* ── Utility ── */
-  --app-border:        rgba(42, 37, 32, 0.08);
-  --app-border-strong: rgba(42, 37, 32, 0.16);
-  --app-shadow:     0 1px 3px rgba(42,37,32,0.08), 0 4px 16px rgba(42,37,32,0.05);
-  --app-shadow-lg:  0 8px 32px rgba(42,37,32,0.12), 0 2px 8px rgba(42,37,32,0.06);
+  /* ── Utility — visible borders (v1.7.2), not ghost lines ── */
+  --app-border:        rgba(26, 22, 18, 0.18);
+  --app-border-strong: rgba(26, 22, 18, 0.32);
+  --app-shadow:     0 1px 3px rgba(26,22,18,0.10), 0 4px 16px rgba(26,22,18,0.06);
+  --app-shadow-lg:  0 8px 32px rgba(26,22,18,0.15), 0 2px 8px rgba(26,22,18,0.08);
 
   /* ── Fluid type scale — moderat skalierend für 1280..2700 px ──
      Maximalwerte sind deutlich konservativer als v1.5.0, damit Listen

@@ -97,7 +97,20 @@ export default function KundenBrowser(): JSX.Element {
   const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [letter, setLetter] = useState<string>(LETTER_ALL);
+  const [letterBarOpen, setLetterBarOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  /** Auto-collapse the alphabet bar as soon as the user starts typing —
+   *  the on-screen "keyboard" effect goes away while they search. */
+  function handleSearchChange(next: string) {
+    setSearch(next);
+    if (next.length > 0 && letterBarOpen) setLetterBarOpen(false);
+  }
+  /** Tapping a letter implicitly opens the bar and clears free-text. */
+  function handleLetterChange(next: string) {
+    setLetter(next);
+    if (next !== LETTER_ALL) setSearch("");
+  }
 
   // Load once, cache for the session. Subsequent letter/search interactions
   // are free of network round-trips — important when the salon WiFi flaps.
@@ -146,9 +159,11 @@ export default function KundenBrowser(): JSX.Element {
         loading={listLoading}
         error={listError}
         search={search}
-        onSearch={setSearch}
+        onSearch={handleSearchChange}
         letter={letter}
-        onLetter={setLetter}
+        onLetter={handleLetterChange}
+        letterBarOpen={letterBarOpen}
+        onToggleLetterBar={() => setLetterBarOpen((v) => !v)}
         selectedId={selectedId}
         onSelect={setSelectedId}
       />
@@ -174,6 +189,8 @@ interface LeftPanelProps {
   onSearch: (s: string) => void;
   letter: string;
   onLetter: (l: string) => void;
+  letterBarOpen: boolean;
+  onToggleLetterBar: () => void;
   selectedId: number | null;
   onSelect: (id: number) => void;
 }
@@ -181,10 +198,10 @@ interface LeftPanelProps {
 function LeftPanel(p: LeftPanelProps): JSX.Element {
   return (
     <aside
-      className="flex h-full w-[380px] shrink-0 flex-col overflow-hidden border-r border-[var(--app-border)] bg-[var(--app-surface)]"
+      className="flex h-full w-[380px] shrink-0 flex-col overflow-hidden border-r-2 border-[var(--app-border-strong)] bg-[var(--app-surface)]"
       aria-label="Kunden-Browser Liste"
     >
-      <div className="border-b border-[var(--app-border)] px-4 py-4">
+      <div className="border-b-2 border-[var(--app-border-strong)] px-4 py-4">
         <label className="block text-base font-medium text-[var(--app-text)]">
           <span className="sr-only">Kunde suchen</span>
           <input
@@ -192,12 +209,38 @@ function LeftPanel(p: LeftPanelProps): JSX.Element {
             placeholder="Name oder Telefon suchen…"
             value={p.search}
             onChange={(e) => p.onSearch(e.target.value)}
-            className="h-14 w-full rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-4 text-lg text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
+            className="h-14 w-full rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-4 text-lg text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
           />
         </label>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={p.onToggleLetterBar}
+            aria-expanded={p.letterBarOpen}
+            aria-controls="letter-bar"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-sm font-medium text-[var(--app-text)] desktop-hover"
+          >
+            <span aria-hidden="true">🔤</span>
+            <span>{p.letterBarOpen ? "Alphabet ausblenden" : "Nach Buchstaben filtern"}</span>
+            {p.letter !== LETTER_ALL && (
+              <span className="ml-1 rounded bg-[var(--editorial-pulse)] px-1.5 text-xs font-bold text-white">
+                {p.letter}
+              </span>
+            )}
+          </button>
+          {p.letter !== LETTER_ALL && (
+            <button
+              type="button"
+              onClick={() => p.onLetter(LETTER_ALL)}
+              className="min-h-10 rounded-md px-2 text-sm text-[var(--app-text-subtle)] desktop-hover"
+            >
+              Filter löschen
+            </button>
+          )}
+        </div>
       </div>
 
-      <LetterBar value={p.letter} onChange={p.onLetter} />
+      {p.letterBarOpen && <LetterBar value={p.letter} onChange={p.onLetter} />}
 
       <div className="flex-1 overflow-y-auto">
         {p.loading ? (
@@ -342,7 +385,7 @@ function RightPanel(p: RightPanelProps): JSX.Element {
 
 /* ─── Client details ───────────────────────────────────────────────────── */
 
-type TabKey = "rezepturen" | "notizen" | "praeferenzen";
+type TabKey = "bearbeiten" | "rezepturen" | "notizen" | "praeferenzen";
 
 function ClientDetails({
   data,
@@ -360,6 +403,9 @@ function ClientDetails({
       <QuickStats data={data} />
       <TabBar value={tab} onChange={setTab} />
       <div className="mt-6">
+        {tab === "bearbeiten" && (
+          <BearbeitenTab cid={cid} data={data} refresh={refresh} />
+        )}
         {tab === "rezepturen" && (
           <RezepturenTab cid={cid} data={data} refresh={refresh} />
         )}
@@ -498,6 +544,7 @@ function TabBar({
   onChange: (k: TabKey) => void;
 }): JSX.Element {
   const tabs: Array<{ k: TabKey; label: string }> = [
+    { k: "bearbeiten", label: "✎ Bearbeiten" },
     { k: "rezepturen", label: "Rezepturen" },
     { k: "notizen", label: "Notizen" },
     { k: "praeferenzen", label: "Besuche & Präferenzen" },
@@ -872,6 +919,249 @@ function OpsField({
           className="mt-1 h-12 w-full rounded-md border border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-base text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
         />
       )}
+    </label>
+  );
+}
+
+/* ─── Bearbeiten (profile editor) tab ─────────────────────────────────────
+   Direct edit of the GDPR-relevant PII fields backed by
+   PATCH /api/clients/:id/profile. The backend already enforces
+   firstName-required + anonymized-client rejection; the UI just mirrors
+   the same constraints with disabled save + a clear error banner.            */
+
+interface ProfileFields {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}
+
+function fieldsFromClient(c: Client360Data["client"]): ProfileFields {
+  return {
+    firstName: c.firstName ?? "",
+    lastName: c.lastName ?? "",
+    phone: c.phone ?? "",
+    email: c.email ?? "",
+    street: c.street ?? "",
+    houseNumber: c.houseNumber ?? "",
+    postalCode: c.postalCode ?? "",
+    city: c.city ?? "",
+    country: c.country ?? "",
+  };
+}
+
+function BearbeitenTab({
+  cid,
+  data,
+  refresh,
+}: {
+  cid: number;
+  data: Client360Data;
+  refresh: () => Promise<void>;
+}): JSX.Element {
+  const [fields, setFields] = useState<ProfileFields>(() =>
+    fieldsFromClient(data.client),
+  );
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const dirty = useMemo(() => {
+    const base = fieldsFromClient(data.client);
+    return (
+      Object.keys(fields) as Array<keyof ProfileFields>
+    ).some((k) => fields[k] !== base[k]);
+  }, [fields, data.client]);
+
+  const canSave = fields.firstName.trim().length > 0 && dirty && !saving;
+
+  function update<K extends keyof ProfileFields>(k: K, v: ProfileFields[K]) {
+    setFields((prev) => ({ ...prev, [k]: v }));
+    setSavedFlash(false);
+    setErr(null);
+  }
+
+  async function save() {
+    if (!canSave) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiPatch(`/api/clients/${cid}/profile`, {
+        firstName: fields.firstName.trim(),
+        lastName: fields.lastName.trim(),
+        phone: fields.phone.trim() || null,
+        email: fields.email.trim() || null,
+        street: fields.street.trim() || null,
+        houseNumber: fields.houseNumber.trim() || null,
+        postalCode: fields.postalCode.trim() || null,
+        city: fields.city.trim() || null,
+        country: fields.country.trim() || null,
+      });
+      setSavedFlash(true);
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "save_failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function discard() {
+    setFields(fieldsFromClient(data.client));
+    setErr(null);
+    setSavedFlash(false);
+  }
+
+  return (
+    <section>
+      <div className="rounded-lg border-2 border-[var(--app-border-strong)] bg-[var(--app-surface)] p-6">
+        <header className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
+          <h3 className="text-2xl font-medium text-[var(--app-text)]">
+            Kundenakte bearbeiten
+          </h3>
+          <p className="text-sm text-[var(--app-text-subtle)]">
+            Änderungen werden in der Änderungshistorie (Audit-Log) festgehalten.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <EditField
+            label="Vorname"
+            required
+            value={fields.firstName}
+            onChange={(v) => update("firstName", v)}
+            placeholder="Pflichtfeld"
+          />
+          <EditField
+            label="Nachname"
+            value={fields.lastName}
+            onChange={(v) => update("lastName", v)}
+          />
+          <EditField
+            label="Telefon"
+            value={fields.phone}
+            onChange={(v) => update("phone", v)}
+            placeholder="z. B. +49 30 123 456"
+            inputMode="tel"
+          />
+          <EditField
+            label="E-Mail"
+            value={fields.email}
+            onChange={(v) => update("email", v)}
+            placeholder="z. B. anna@example.com"
+            inputMode="email"
+          />
+        </div>
+
+        <h4 className="mt-8 mb-3 text-lg font-medium text-[var(--app-text)]">
+          Adresse
+        </h4>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[2fr_1fr]">
+          <EditField
+            label="Straße"
+            value={fields.street}
+            onChange={(v) => update("street", v)}
+          />
+          <EditField
+            label="Hausnummer"
+            value={fields.houseNumber}
+            onChange={(v) => update("houseNumber", v)}
+          />
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[1fr_2fr_1fr]">
+          <EditField
+            label="PLZ"
+            value={fields.postalCode}
+            onChange={(v) => update("postalCode", v)}
+            inputMode="numeric"
+          />
+          <EditField
+            label="Stadt"
+            value={fields.city}
+            onChange={(v) => update("city", v)}
+          />
+          <EditField
+            label="Land"
+            value={fields.country}
+            onChange={(v) => update("country", v)}
+            placeholder="z. B. Deutschland"
+          />
+        </div>
+
+        {err && (
+          <p className="mt-5 rounded-md border-2 border-editorial-crimson bg-red-50 p-3 text-base text-red-900">
+            Fehler: {err}
+          </p>
+        )}
+        {savedFlash && !err && !dirty && (
+          <p className="mt-5 rounded-md border-2 border-green-700 bg-green-50 p-3 text-base font-medium text-green-900">
+            ✓ Gespeichert.
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!canSave}
+            className="min-h-12 rounded-md bg-[var(--editorial-pulse)] px-6 text-lg font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? "Speichere…" : "Änderungen speichern"}
+          </button>
+          {dirty && !saving && (
+            <button
+              type="button"
+              onClick={discard}
+              className="min-h-12 rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-5 text-base text-[var(--app-text)] desktop-hover"
+            >
+              Verwerfen
+            </button>
+          )}
+          {!fields.firstName.trim() && (
+            <span className="text-sm text-red-700">
+              Vorname ist Pflichtfeld
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  inputMode,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  inputMode?: "tel" | "email" | "numeric" | "text";
+}): JSX.Element {
+  return (
+    <label className="block">
+      <span className="block text-base font-medium text-[var(--app-text)]">
+        {label}
+        {required && <span className="ml-1 text-red-700" aria-hidden="true">*</span>}
+      </span>
+      <input
+        type="text"
+        inputMode={inputMode}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1.5 h-12 w-full rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-3 text-base text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
+      />
     </label>
   );
 }

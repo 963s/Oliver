@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { apiGet, apiPatch, apiPost } from "../api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { apiDelete, apiGet, apiPatch, apiPost } from "../api";
 import { useClient360, type Client360Data } from "../hooks/useClient360";
 import { formatEurDeFromCents } from "../lib/formatMoney";
 import { formatBerlinDateTime } from "../lib/formatTime";
@@ -91,6 +91,13 @@ function matchesSearch(c: ClientRow, q: string): boolean {
 
 /* ─── Page component ───────────────────────────────────────────────────── */
 
+type DeleteState =
+  | { stage: "closed" }
+  | { stage: "reason"; client: ClientRow; reason: string }
+  | { stage: "confirm"; client: ClientRow; reason: string }
+  | { stage: "deleting"; client: ClientRow; reason: string }
+  | { stage: "error"; client: ClientRow; reason: string; message: string };
+
 export default function KundenBrowser(): JSX.Element {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [listLoading, setListLoading] = useState(true);
@@ -99,6 +106,19 @@ export default function KundenBrowser(): JSX.Element {
   const [letter, setLetter] = useState<string>(LETTER_ALL);
   const [letterBarOpen, setLetterBarOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [initialTab, setInitialTab] = useState<TabKey>("rezepturen");
+  const [deleteState, setDeleteState] = useState<DeleteState>({ stage: "closed" });
+
+  /** Only owners can hard-anonymize; backend rejects others with 403. Hide the
+   *  Löschen menu entry for non-owners so the UI matches the permission. */
+  const isOwner = useMemo(() => {
+    try {
+      const role = localStorage.getItem("or:staffRole") ?? "";
+      return role === "owner" || role === "super_admin";
+    } catch {
+      return false;
+    }
+  }, []);
 
   /** Auto-collapse the alphabet bar as soon as the user starts typing —
    *  the on-screen "keyboard" effect goes away while they search. */
@@ -151,6 +171,48 @@ export default function KundenBrowser(): JSX.Element {
 
   const client360 = useClient360(selectedId);
 
+  function openClient(id: number, tab: TabKey = "rezepturen") {
+    setSelectedId(id);
+    setInitialTab(tab);
+  }
+
+  /** GoBD-style anonymize. Two stages of confirmation, then DELETE. */
+  async function performDelete() {
+    if (deleteState.stage !== "confirm") return;
+    const { client, reason } = deleteState;
+    setDeleteState({ stage: "deleting", client, reason });
+    try {
+      await apiDelete(
+        `/api/clients/${client.id}?reason=${encodeURIComponent(reason)}`,
+      );
+      // Local cache eviction — anonymized client gets renamed/cleared.
+      setClients((prev) =>
+        prev.map((c) =>
+          c.id === client.id
+            ? {
+                ...c,
+                name: "Anonymous Client",
+                firstName: "Anonymous",
+                lastName: "Client",
+                email: null,
+                phone: null,
+                anonymizedAt: new Date().toISOString(),
+              }
+            : c,
+        ),
+      );
+      if (selectedId === client.id) setSelectedId(null);
+      setDeleteState({ stage: "closed" });
+    } catch (e) {
+      setDeleteState({
+        stage: "error",
+        client,
+        reason,
+        message: e instanceof Error ? e.message : "delete_failed",
+      });
+    }
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-[var(--app-bg)]">
       <LeftPanel
@@ -165,15 +227,47 @@ export default function KundenBrowser(): JSX.Element {
         letterBarOpen={letterBarOpen}
         onToggleLetterBar={() => setLetterBarOpen((v) => !v)}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={(id) => openClient(id)}
+        onEditClient={(id) => openClient(id, "bearbeiten")}
+        onDeleteClient={(c) =>
+          setDeleteState({ stage: "reason", client: c, reason: "" })
+        }
+        canDelete={isOwner}
       />
       <RightPanel
         selectedId={selectedId}
+        initialTab={initialTab}
         data={client360.data}
         loading={client360.loading}
         error={client360.error}
         refresh={client360.refresh}
       />
+      {deleteState.stage !== "closed" && (
+        <DeleteClientDialog
+          state={deleteState}
+          onCancel={() => setDeleteState({ stage: "closed" })}
+          onReasonChange={(r) =>
+            setDeleteState((s) =>
+              s.stage === "reason" ? { ...s, reason: r } : s,
+            )
+          }
+          onContinue={() =>
+            setDeleteState((s) =>
+              s.stage === "reason"
+                ? { stage: "confirm", client: s.client, reason: s.reason }
+                : s,
+            )
+          }
+          onBack={() =>
+            setDeleteState((s) =>
+              s.stage === "confirm" || s.stage === "error"
+                ? { stage: "reason", client: s.client, reason: s.reason }
+                : s,
+            )
+          }
+          onConfirm={() => void performDelete()}
+        />
+      )}
     </div>
   );
 }
@@ -193,6 +287,9 @@ interface LeftPanelProps {
   onToggleLetterBar: () => void;
   selectedId: number | null;
   onSelect: (id: number) => void;
+  onEditClient: (id: number) => void;
+  onDeleteClient: (c: ClientRow) => void;
+  canDelete: boolean;
 }
 
 function LeftPanel(p: LeftPanelProps): JSX.Element {
@@ -260,33 +357,15 @@ function LeftPanel(p: LeftPanelProps): JSX.Element {
         ) : (
           <ul role="list">
             {p.clients.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => p.onSelect(c.id)}
-                  className={`flex min-h-16 w-full items-center gap-3 border-b border-[var(--app-border)] px-4 py-3 text-left desktop-hover ${
-                    p.selectedId === c.id
-                      ? "bg-[var(--editorial-pulse)]/15"
-                      : ""
-                  }`}
-                  aria-current={p.selectedId === c.id ? "true" : undefined}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--app-bg)] text-lg font-medium text-[var(--app-text)]"
-                  >
-                    {firstLetterForSort(c) || "?"}
-                  </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-base font-medium text-[var(--app-text)]">
-                      {displayName(c)}
-                    </span>
-                    <span className="truncate text-sm text-[var(--app-text-subtle)]">
-                      {c.phone || "Keine Telefonnummer"}
-                    </span>
-                  </span>
-                </button>
-              </li>
+              <ClientListRow
+                key={c.id}
+                client={c}
+                selected={p.selectedId === c.id}
+                onOpen={() => p.onSelect(c.id)}
+                onEdit={() => p.onEditClient(c.id)}
+                onDelete={() => p.onDeleteClient(c)}
+                canDelete={p.canDelete}
+              />
             ))}
           </ul>
         )}
@@ -340,6 +419,7 @@ function LetterBar({
 
 interface RightPanelProps {
   selectedId: number | null;
+  initialTab: TabKey;
   data: Client360Data | null;
   loading: boolean;
   error: string | null;
@@ -380,7 +460,13 @@ function RightPanel(p: RightPanelProps): JSX.Element {
     );
   }
 
-  return <ClientDetails data={p.data} refresh={p.refresh} />;
+  return (
+    <ClientDetails
+      data={p.data}
+      refresh={p.refresh}
+      initialTab={p.initialTab}
+    />
+  );
 }
 
 /* ─── Client details ───────────────────────────────────────────────────── */
@@ -390,11 +476,18 @@ type TabKey = "bearbeiten" | "rezepturen" | "notizen" | "praeferenzen";
 function ClientDetails({
   data,
   refresh,
+  initialTab,
 }: {
   data: Client360Data;
   refresh: () => Promise<void>;
+  initialTab: TabKey;
 }): JSX.Element {
-  const [tab, setTab] = useState<TabKey>("rezepturen");
+  const [tab, setTab] = useState<TabKey>(initialTab);
+  // Switching to a different client (or clicking Edit on a row) should
+  // honor the freshly-passed initialTab.
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab, data.client.id]);
   const cid = data.client.id;
   return (
     <main className="flex-1 overflow-y-auto p-8">
@@ -1165,3 +1258,318 @@ function EditField({
     </label>
   );
 }
+
+/* ─── Client list row + three-dots menu ───────────────────────────────────
+   The menu hovers over the row. Click-outside listener installed only while
+   the menu is open — keeps the listener cost tiny for the 1000-client list.   */
+
+function ClientListRow({
+  client,
+  selected,
+  onOpen,
+  onEdit,
+  onDelete,
+  canDelete,
+}: {
+  client: ClientRow;
+  selected: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+}): JSX.Element {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const wrapperRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [menuOpen]);
+
+  const isAnonymized = client.anonymizedAt != null;
+
+  return (
+    <li ref={wrapperRef} className="relative">
+      <div
+        className={`flex min-h-16 items-stretch border-b border-[var(--app-border)] ${
+          selected ? "bg-[var(--editorial-pulse)]/15" : ""
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onOpen}
+          className="flex flex-1 items-center gap-3 px-4 py-3 text-left desktop-hover"
+          aria-current={selected ? "true" : undefined}
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--app-bg)] text-lg font-medium text-[var(--app-text)]"
+          >
+            {firstLetterForSort(client) || "?"}
+          </span>
+          <span className="flex min-w-0 flex-col">
+            <span
+              className={`truncate text-base font-medium ${
+                isAnonymized
+                  ? "italic text-[var(--app-text-subtle)]"
+                  : "text-[var(--app-text)]"
+              }`}
+            >
+              {displayName(client)}
+              {isAnonymized && " · anonymisiert"}
+            </span>
+            <span className="truncate text-sm text-[var(--app-text-subtle)]">
+              {client.phone || "Keine Telefonnummer"}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen((v) => !v);
+          }}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="Aktionen für diesen Kunden"
+          className="flex w-10 shrink-0 items-center justify-center border-l border-[var(--app-border)] text-xl text-[var(--app-text-subtle)] desktop-hover"
+        >
+          ⋮
+        </button>
+      </div>
+
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-2 top-14 z-30 w-56 rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-surface)] py-1 shadow-luxury"
+        >
+          <RowMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              onOpen();
+            }}
+            icon="👁"
+            label="Öffnen"
+          />
+          <RowMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              onEdit();
+            }}
+            icon="✎"
+            label="Bearbeiten"
+            disabled={isAnonymized}
+          />
+          {canDelete && (
+            <RowMenuItem
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete();
+              }}
+              icon="🗑"
+              label="Löschen"
+              disabled={isAnonymized}
+              danger
+            />
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function RowMenuItem({
+  onClick,
+  icon,
+  label,
+  disabled,
+  danger,
+}: {
+  onClick: () => void;
+  icon: string;
+  label: string;
+  disabled?: boolean;
+  danger?: boolean;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-base desktop-hover disabled:opacity-40 disabled:cursor-not-allowed ${
+        danger ? "text-red-700" : "text-[var(--app-text)]"
+      }`}
+    >
+      <span aria-hidden="true" className="w-5 text-center">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ─── Delete confirmation dialog (two-stage) ──────────────────────────────
+   Stage 1 — reason: salon owner types why the client is being anonymized.
+            Required by §15 / Art. 17 — backend rejects empty reason with 400.
+   Stage 2 — confirm: shows a clear "final" warning before the API fires.
+   Stage 3 — deleting: button is disabled, shows spinner text.
+   Stage 4 — error:    keeps the modal open with a retry button.            */
+
+function DeleteClientDialog({
+  state,
+  onCancel,
+  onReasonChange,
+  onContinue,
+  onBack,
+  onConfirm,
+}: {
+  state: DeleteState;
+  onCancel: () => void;
+  onReasonChange: (r: string) => void;
+  onContinue: () => void;
+  onBack: () => void;
+  onConfirm: () => void;
+}): JSX.Element | null {
+  if (state.stage === "closed") return null;
+  const c = state.client;
+  const name =
+    [c.firstName, c.lastName].filter((s) => s && s.trim()).join(" ").trim() ||
+    c.name ||
+    "Unbekannt";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-dialog-title"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && state.stage !== "deleting") onCancel();
+      }}
+    >
+      <div className="w-full max-w-lg rounded-lg border-2 border-[var(--app-border-strong)] bg-[var(--app-surface)] p-6 shadow-luxury">
+        {state.stage === "reason" && (
+          <>
+            <h2 id="delete-dialog-title" className="text-2xl font-medium text-[var(--app-text)]">
+              Kunden löschen?
+            </h2>
+            <p className="mt-3 text-base text-[var(--app-text)]">
+              <strong>{name}</strong> wird gemäß DSGVO Art. 17 anonymisiert.
+              Termine bleiben fiskalisch korrekt erhalten, aber Name, Telefon
+              und E-Mail werden unwiderruflich gelöscht.
+            </p>
+            <label className="mt-5 block">
+              <span className="block text-base font-medium text-[var(--app-text)]">
+                Begründung (Pflicht)
+                <span className="ml-1 text-red-700" aria-hidden="true">*</span>
+              </span>
+              <textarea
+                value={state.reason}
+                onChange={(e) => onReasonChange(e.target.value)}
+                placeholder="z. B. Datenschutz-Anfrage des Kunden vom 27.05.2026"
+                rows={3}
+                className="mt-1.5 w-full rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] p-3 text-base text-[var(--app-text)] outline-none focus:border-[var(--editorial-pulse)]"
+                autoFocus
+              />
+            </label>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="min-h-12 rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-5 text-base text-[var(--app-text)] desktop-hover"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={onContinue}
+                disabled={state.reason.trim().length < 1}
+                className="min-h-12 rounded-md bg-red-700 px-5 text-base font-medium text-white disabled:opacity-40"
+              >
+                Weiter
+              </button>
+            </div>
+          </>
+        )}
+
+        {(state.stage === "confirm" || state.stage === "deleting") && (
+          <>
+            <h2 id="delete-dialog-title" className="text-2xl font-medium text-red-800">
+              Endgültige Bestätigung
+            </h2>
+            <p className="mt-3 text-base text-[var(--app-text)]">
+              Soll der Kunde <strong>{name}</strong> wirklich anonymisiert werden?
+              Diese Aktion ist <strong>unwiderruflich</strong>.
+            </p>
+            <p className="mt-3 rounded-md bg-[var(--app-bg)] p-3 text-sm text-[var(--app-text-subtle)]">
+              Begründung: <em>{state.reason}</em>
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={state.stage === "deleting"}
+                className="min-h-12 rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-5 text-base text-[var(--app-text)] desktop-hover disabled:opacity-40"
+              >
+                Zurück
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={state.stage === "deleting"}
+                className="min-h-12 rounded-md bg-red-700 px-5 text-base font-medium text-white disabled:opacity-40"
+              >
+                {state.stage === "deleting" ? "Lösche…" : "Endgültig löschen"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {state.stage === "error" && (
+          <>
+            <h2 id="delete-dialog-title" className="text-2xl font-medium text-red-800">
+              Löschen fehlgeschlagen
+            </h2>
+            <p className="mt-3 rounded-md border-2 border-editorial-crimson bg-red-50 p-3 text-base text-red-900">
+              {state.message}
+            </p>
+            <p className="mt-3 text-sm text-[var(--app-text-subtle)]">
+              {/* Most common cause: non-owner role. */}
+              Tipp: Nur der Inhaber-Login (Owner) darf Kunden löschen.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="min-h-12 rounded-md border-2 border-[var(--app-border-strong)] bg-[var(--app-bg)] px-5 text-base text-[var(--app-text)] desktop-hover"
+              >
+                Schließen
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className="min-h-12 rounded-md bg-red-700 px-5 text-base font-medium text-white"
+              >
+                Erneut versuchen
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+

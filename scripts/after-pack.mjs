@@ -60,4 +60,34 @@ export default async function afterPack(context) {
   });
 
   console.log(`[after-pack] ✅ better-sqlite3 ${archName} fertig.`);
+
+  /**
+   * Macs (Sequoia / Sonoma) reject any app whose ad-hoc signature does not
+   * match the bundle contents. electron-builder signs the bundle ad-hoc
+   * before we get here, then this hook installs `node_modules` and rebuilds
+   * `better-sqlite3` — those writes invalidate the signature, so macOS
+   * shows "The app has been modified or damaged" on first launch.
+   *
+   * We are not Apple-signed, so the cleanest fix is to **re-apply the
+   * ad-hoc signature** after all modifications. The `-` identity is
+   * codesign's ad-hoc marker; `--deep` re-signs nested frameworks too
+   * (Electron Framework, Squirrel helpers).
+   */
+  if (process.platform === "darwin") {
+    const appBundle = path.join(
+      appOutDir,
+      `${packager.appInfo.productFilename}.app`,
+    );
+    console.log(`[after-pack] Re-signing app bundle (ad-hoc) → ${appBundle}`);
+    try {
+      execSync(
+        `codesign --force --deep --sign - "${appBundle}"`,
+        { stdio: "inherit" },
+      );
+      console.log(`[after-pack] ✅ ad-hoc re-sign fertig.`);
+    } catch (err) {
+      console.error(`[after-pack] ⚠ codesign failed: ${err?.message ?? err}`);
+      console.error(`[after-pack] App will still ship but may trigger "modified" warnings on macOS 15+.`);
+    }
+  }
 }

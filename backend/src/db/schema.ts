@@ -454,6 +454,164 @@ export const clientNotes = sqliteTable(
 );
 
 /**
+ * §12 — Structured hair history per client (color formulae, allergies, patch tests).
+ * 1:1 with clients (UNIQUE(client_id)); upsert through Client 360 panel.
+ */
+export const clientHairProfiles = sqliteTable(
+  "client_hair_profiles",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id),
+    naturalColor: text("natural_color"),
+    currentColor: text("current_color"),
+    /** fine | medium | coarse */
+    hairTexture: text("hair_texture"),
+    /** healthy | damaged | chemically_treated | color_treated */
+    hairCondition: text("hair_condition"),
+    /** normal | dry | oily | sensitive */
+    scalpCondition: text("scalp_condition"),
+    lastBleachAt: integer("last_bleach_at", { mode: "timestamp_ms" }),
+    lastPermAt: integer("last_perm_at", { mode: "timestamp_ms" }),
+    lastRelaxerAt: integer("last_relaxer_at", { mode: "timestamp_ms" }),
+    /** JSON array of strings — surfaced in red badge on Client 360. */
+    knownAllergies: text("known_allergies"),
+    /** pass | fail | not_done */
+    patchTestResult: text("patch_test_result"),
+    patchTestNotes: text("patch_test_notes"),
+    preferredStyle: text("preferred_style"),
+    /** short | medium | long | custom */
+    preferredLength: text("preferred_length"),
+    updatedByStaffId: integer("updated_by_staff_id").references(() => staff.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+  },
+  (t) => [uniqueIndex("client_hair_profiles_client_unique").on(t.clientId)],
+);
+
+/**
+ * §12 — Rich per-visit record: services performed, formula linkage, satisfaction,
+ * next-visit hints. Written at session close (or backfilled by staff).
+ */
+export const clientVisitRecords = sqliteTable(
+  "client_visit_records",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id),
+    sessionId: integer("session_id").references(() => sessions.id),
+    appointmentId: integer("appointment_id").references(() => appointments.id),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id),
+    /** YYYY-MM-DD (Berlin local) for fast date-range scans. */
+    visitDate: text("visit_date").notNull(),
+    /** JSON array: [{name, durationMin, priceNet}]. */
+    servicesPerformed: text("services_performed"),
+    formulaUsed: text("formula_used"),
+    formulaId: integer("formula_id").references(() => clientFormulas.id),
+    resultNotes: text("result_notes"),
+    /** 1..5 staff-assessed satisfaction. */
+    clientSatisfaction: integer("client_satisfaction"),
+    recommendedNextVisitWeeks: integer("recommended_next_visit_weeks"),
+    nextTreatmentNotes: text("next_treatment_notes"),
+    totalPaidCents: integer("total_paid_cents"),
+    tipCents: integer("tip_cents"),
+    paymentMethod: text("payment_method"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+  },
+  (t) => [
+    index("client_visit_records_client_date_idx").on(t.clientId, t.visitDate),
+    index("client_visit_records_session_idx").on(t.sessionId),
+  ],
+);
+
+/**
+ * §12 — Structured key/value preferences (hospitality, service, communication, scheduling).
+ * Extends `clients.preferences` (JSON blob) with typed, searchable rows.
+ */
+export const clientPreferences = sqliteTable(
+  "client_preferences",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id),
+    /** hospitality | service | communication | scheduling | system */
+    category: text("category").notNull(),
+    prefKey: text("pref_key").notNull(),
+    /** JSON-encoded; readers must JSON.parse. */
+    prefValue: text("pref_value").notNull(),
+    setByStaffId: integer("set_by_staff_id").references(() => staff.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+  },
+  (t) => [
+    uniqueIndex("client_preferences_client_cat_key_unique").on(
+      t.clientId,
+      t.category,
+      t.prefKey,
+    ),
+  ],
+);
+
+/**
+ * §12 — Lightweight segmentation tags (vip, color-sensitive, no-show-risk, stammkunde, custom).
+ * One row per tag per client; UNIQUE(client_id, tag) prevents duplicate noise.
+ */
+export const clientTags = sqliteTable(
+  "client_tags",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id),
+    tag: text("tag").notNull(),
+    setByStaffId: integer("set_by_staff_id").references(() => staff.id),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch() * 1000 as integer))`),
+  },
+  (t) => [uniqueIndex("client_tags_client_tag_unique").on(t.clientId, t.tag)],
+);
+
+/**
+ * §12 — Denormalized header stats for Client 360°.
+ * Refreshed by `clientStatsService` on write events; readers may fall back to
+ * a live query when the row is older than ~1h (stale-tolerance).
+ */
+export const clientStatsCache = sqliteTable("client_stats_cache", {
+  clientId: integer("client_id")
+    .primaryKey()
+    .references(() => clients.id),
+  totalVisits: integer("total_visits").notNull().default(0),
+  totalSpentCents: integer("total_spent_cents").notNull().default(0),
+  avgVisitCents: integer("avg_visit_cents").notNull().default(0),
+  firstVisitAt: integer("first_visit_at", { mode: "timestamp_ms" }),
+  lastVisitAt: integer("last_visit_at", { mode: "timestamp_ms" }),
+  daysSinceLastVisit: integer("days_since_last_visit"),
+  noShowCount: integer("no_show_count").notNull().default(0),
+  cancelCount: integer("cancel_count").notNull().default(0),
+  reliabilityScore: integer("reliability_score").notNull().default(100),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(cast(unixepoch() * 1000 as integer))`),
+});
+
+/**
  * §12.5.57 — Signed waiver / consent for chemical or invasive treatments (tamper-evident hash).
  */
 export const clientWaivers = sqliteTable(

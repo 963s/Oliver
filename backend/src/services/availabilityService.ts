@@ -1,6 +1,7 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { and, eq, gt, inArray, isNull, lt, ne } from "drizzle-orm";
 import * as schema from "../db/schema.js";
+import { whereNotDeleted } from "../lib/db/softDelete.js";
 import {
   appointmentsOverlapWithBuffer,
   SANITIZATION_BUFFER_MS,
@@ -191,7 +192,7 @@ export function checkAppointmentConflict(
   const loose = and(
     eq(schema.appointments.staffId, staffId),
     inArray(schema.appointments.status, ["booked", "checked_in"]),
-    isNull(schema.appointments.deletedAt),
+    whereNotDeleted(schema.appointments),
     lt(schema.appointments.startAt, new Date(endAtMs + SANITIZATION_BUFFER_MS)),
     gt(schema.appointments.endAt, new Date(startAtMs - SANITIZATION_BUFFER_MS)),
   );

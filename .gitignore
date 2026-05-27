@@ -7,5 +7,7 @@ backend/data/
 .DS_Store
 .env
 .env.*
+!.env.example
+!**/.env.example
 release/
 backend-bundle/

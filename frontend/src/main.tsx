@@ -3,13 +3,11 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-// Apply saved theme before first paint — default is light
+// Light mode only — dark theme was removed in v1.7.0 (salon owner only uses one mode).
+// Clean any stale 'dark' class or localStorage flag from older app versions.
 try {
-  const stored = localStorage.getItem("or:theme");
-  if (stored === "dark") {
-    document.documentElement.classList.add("dark");
-  }
-  // Light theme is default — no class needed
+  document.documentElement.classList.remove("dark");
+  localStorage.removeItem("or:theme");
 } catch {}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

@@ -1,10 +1,11 @@
 import type { Express, Request, Response } from "express";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { getStaffContext } from "../lib/sessionAuth.js";
 import { createAuditLog } from "../lib/audit/logger.js";
+import { whereNotDeleted } from "../lib/db/softDelete.js";
 
 function asyncRoute(
   fn: (req: Request, res: Response) => Promise<void> | void,
@@ -74,7 +75,7 @@ export function registerClientRoutes(
           .where(
             and(
               eq(schema.appointments.clientId, id),
-              isNull(schema.appointments.deletedAt),
+              whereNotDeleted(schema.appointments),
             ),
           )
           .run();

@@ -1,11 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 /**
- * Semantic color tokens now reference CSS custom properties.
- * Light/dark toggling changes --app-* vars → all Tailwind utilities update automatically.
+ * Semantic color tokens point to CSS custom properties in :root (light only).
+ * Dark mode was removed in v1.7.0 — the salon UI is single-theme by design.
  */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  darkMode: "class",
+  darkMode: false,
   theme: {
     extend: {
       colors: {

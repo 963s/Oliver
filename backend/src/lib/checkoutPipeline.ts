@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { writeAudit } from "./audit.js";
 import { writeAuditTx } from "./audit.js";
+import { whereNotDeleted } from "./db/softDelete.js";
 import { computeLine } from "./germanVat.js";
 import { signInvoiceFiscal } from "../modules/fiscal/tseAdapter.js";
 import { resolvePaymentProof, type ZvtDirectBody } from "./checkoutPaymentProof.js";
@@ -700,7 +701,12 @@ export async function runSessionCheckoutPipeline(
           const [a] = tx
             .select()
             .from(schema.appointments)
-            .where(eq(schema.appointments.id, appointmentId))
+            .where(
+              and(
+                eq(schema.appointments.id, appointmentId),
+                whereNotDeleted(schema.appointments),
+              ),
+            )
             .limit(1)
             .all();
           if (a && a.status === "checked_in") {

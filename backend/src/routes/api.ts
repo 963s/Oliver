@@ -3,6 +3,7 @@ import { eq, and, or, desc, gte, lte, asc, like, isNull, inArray } from "drizzle
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { writeAudit, writeAuditTx } from "../lib/audit.js";
+import { softDelete, whereNotDeleted } from "../lib/db/softDelete.js";
 import {
   getStaffContext,
   requireOwner,
@@ -61,6 +62,7 @@ import { registerInventoryAdminRoutes } from "./inventoryRoutes.js";
 import { registerOnboardingRoutes } from "./onboardingRoutes.js";
 import { registerExportRoutes } from "./exportRoutes.js";
 import { registerClientRoutes } from "./clientRoutes.js";
+import { registerClient360Routes } from "./client360Routes.js";
 import { registerSystemRoutes } from "./systemRoutes.js";
 import { registerCatalogAdminRoutes } from "./catalogRoutes.js";
 import { registerSettingsAdminRoutes } from "./settingsRoutes.js";
@@ -204,6 +206,7 @@ export function registerApi(
   registerInventoryAdminRoutes(app, db);
   registerExportRoutes(app, db);
   registerClientRoutes(app, db);
+  registerClient360Routes(app, db);
   registerSystemRoutes(app, db);
   registerCatalogAdminRoutes(app, db);
   registerSettingsAdminRoutes(app, db);
@@ -1023,7 +1026,7 @@ export function registerApi(
         .from(schema.appointments)
         .where(
           and(
-            isNull(schema.appointments.deletedAt),
+            whereNotDeleted(schema.appointments),
             gte(schema.appointments.startAt, new Date(fromMs)),
             lte(schema.appointments.startAt, new Date(toMs)),
           ),
@@ -1051,7 +1054,7 @@ export function registerApi(
         .select()
         .from(schema.appointments)
         .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
+          and(eq(schema.appointments.id, id), whereNotDeleted(schema.appointments)),
         )
         .limit(1)
         .all();
@@ -1120,7 +1123,7 @@ export function registerApi(
         .select()
         .from(schema.appointments)
         .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
+          and(eq(schema.appointments.id, id), whereNotDeleted(schema.appointments)),
         )
         .limit(1)
         .all();
@@ -1209,7 +1212,7 @@ export function registerApi(
         .select()
         .from(schema.appointments)
         .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
+          and(eq(schema.appointments.id, id), whereNotDeleted(schema.appointments)),
         )
         .limit(1)
         .all();
@@ -1370,38 +1373,20 @@ export function registerApi(
         res.status(400).json({ error: "appointment_delete_reason_required" });
         return;
       }
-      const [apt] = db
-        .select()
-        .from(schema.appointments)
-        .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
-        )
-        .limit(1)
-        .all();
-      if (!apt) {
+      const result = softDelete(db, schema.appointments, id, {
+        entityName: "appointments",
+        auditAction: "appointment_soft_delete",
+        staffId: c.staffId,
+        reason,
+        snapshot: (row) =>
+          snapshotAppointmentRow(
+            row as typeof schema.appointments.$inferSelect,
+          ),
+      });
+      if (!result.ok) {
         res.status(404).json({ error: "not_found" });
         return;
       }
-      const now = new Date();
-      db.update(schema.appointments)
-        .set({ deletedAt: now, updatedAt: now })
-        .where(eq(schema.appointments.id, id))
-        .run();
-      const [updated] = db
-        .select()
-        .from(schema.appointments)
-        .where(eq(schema.appointments.id, id))
-        .limit(1)
-        .all();
-      createAuditLog(db, {
-        staffId: c.staffId,
-        action: "appointment_soft_delete",
-        entityType: "appointments",
-        entityId: id,
-        beforeData: snapshotAppointmentRow(apt),
-        afterData: updated ? snapshotAppointmentRow(updated) : null,
-        reason,
-      });
       res.json({ ok: true, id });
     }),
   );
@@ -1419,7 +1404,7 @@ export function registerApi(
         .select()
         .from(schema.appointments)
         .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
+          and(eq(schema.appointments.id, id), whereNotDeleted(schema.appointments)),
         )
         .limit(1)
         .all();
@@ -1475,7 +1460,7 @@ export function registerApi(
         .select()
         .from(schema.appointments)
         .where(
-          and(eq(schema.appointments.id, id), isNull(schema.appointments.deletedAt)),
+          and(eq(schema.appointments.id, id), whereNotDeleted(schema.appointments)),
         )
         .limit(1)
         .all();
@@ -3868,39 +3853,52 @@ export function registerApi(
   );
 
   /* --- §12 CRM / GDPR — clients --- */
+  /**
+   * Offline-first listing: when `q` is empty/omitted, returns all
+   * non-anonymized clients sorted by name (capped at 1000). Frontend caches
+   * once and filters/searches in-memory. When `q` is provided, server still
+   * runs the LIKE filter so high-cardinality salons can paginate later.
+   */
   app.get(
     "/api/clients/search",
     asyncRoute((req, res) => {
       const c = getStaffContext(req);
       const raw = String(req.query.q ?? "").trim();
       const q = raw.replace(/[%_\\]/g, "");
-      if (q.length < 1) {
-        res.status(400).json({ error: "q required" });
-        return;
+
+      let whereClause = isNull(schema.clients.anonymizedAt);
+      if (q.length >= 1) {
+        const pattern = `%${q}%`;
+        const filter = and(
+          isNull(schema.clients.anonymizedAt),
+          or(
+            like(schema.clients.firstName, pattern),
+            like(schema.clients.lastName, pattern),
+            like(schema.clients.name, pattern),
+            like(schema.clients.phone, pattern),
+            like(schema.clients.email, pattern),
+          ),
+        );
+        if (filter) whereClause = filter;
       }
-      const pattern = `%${q}%`;
+
+      const limitVal = Math.min(
+        1000,
+        Math.max(1, Number.parseInt(String(req.query.limit ?? "1000"), 10) || 1000),
+      );
       const rows = db
         .select()
         .from(schema.clients)
-        .where(
-          and(
-            isNull(schema.clients.anonymizedAt),
-            or(
-              like(schema.clients.firstName, pattern),
-              like(schema.clients.lastName, pattern),
-              like(schema.clients.name, pattern),
-              like(schema.clients.phone, pattern),
-              like(schema.clients.email, pattern),
-            ),
-          ),
-        )
-        .limit(50)
+        .where(whereClause)
+        .orderBy(asc(schema.clients.name))
+        .limit(limitVal)
         .all();
+
       writeAudit(db, {
         entity: "clients",
         action: "client_search",
         staffId: c.staffId,
-        payload: { queryLength: q.length },
+        payload: { queryLength: q.length, returned: rows.length },
       });
       res.json(rows);
     }),
@@ -4605,7 +4603,7 @@ export function registerApi(
         tx.update(schema.appointments)
           .set({ clientName: "Anonymisiert", clientPhone: null })
           .where(
-            and(eq(schema.appointments.clientId, id), isNull(schema.appointments.deletedAt)),
+            and(eq(schema.appointments.clientId, id), whereNotDeleted(schema.appointments)),
           )
           .run();
         tx.update(schema.clients)

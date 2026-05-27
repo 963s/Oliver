@@ -10,7 +10,18 @@ import { app, BrowserWindow, Menu, ipcMain, shell, dialog, Tray, nativeImage } f
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, createWriteStream } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  readFileSync,
+  writeFileSync,
+  createWriteStream,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  renameSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import http from "node:http";
 import https from "node:https";
@@ -66,6 +77,18 @@ let viteChild = null;
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
 
+/* ── Backend-Supervisor State ───────────────────────────────────────────────
+   Restart loop with exponential backoff. After MAX restarts in a rolling
+   WINDOW the app gives up and shows a user-facing error dialog. The
+   intentional-stop flag suppresses the supervisor during shutdown. */
+const BACKEND_LOG_RETENTION_DAYS = 7;
+const BACKEND_RESTART_WINDOW_MS = 60_000;
+const BACKEND_MAX_RESTARTS_PER_WINDOW = 5;
+const backendRestartTimestamps = [];
+let backendIntentionallyStopping = false;
+/** @type {ReturnType<typeof createWriteStream> | null} */
+let backendLogStream = null;
+
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
 function waitForHttpOk(url, timeoutMs = 45_000) {
@@ -91,6 +114,203 @@ function killChild(child, label) {
   if (!child?.pid) return;
   try { child.kill("SIGTERM"); } catch { /* ignore */ }
   if (label) console.log(`[electron] Gestoppt: ${label}`);
+}
+
+/* ── Backend-Log + Supervisor ────────────────────────────────────────────── */
+
+function getBackendLogDir() {
+  const dir = path.join(app.getPath("userData"), "logs");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getBackendLogPath() {
+  const ymd = new Date().toISOString().slice(0, 10);
+  return path.join(getBackendLogDir(), `backend-${ymd}.log`);
+}
+
+function pruneOldBackendLogs() {
+  try {
+    const dir = getBackendLogDir();
+    const cutoff = Date.now() - BACKEND_LOG_RETENTION_DAYS * 24 * 3600 * 1000;
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith("backend-") || !name.endsWith(".log")) continue;
+      const full = path.join(dir, name);
+      try {
+        if (statSync(full).mtimeMs < cutoff) unlinkSync(full);
+      } catch { /* one file failing should not block the rest */ }
+    }
+  } catch (err) {
+    console.error("[electron] Log-Rotation fehlgeschlagen:", err?.message);
+  }
+}
+
+function openBackendLogStream() {
+  if (backendLogStream) {
+    try { backendLogStream.end(); } catch { /* ignore */ }
+    backendLogStream = null;
+  }
+  pruneOldBackendLogs();
+  backendLogStream = createWriteStream(getBackendLogPath(), { flags: "a" });
+  backendLogStream.on("error", (err) => {
+    console.error("[electron] Backend-Log Stream Fehler:", err?.message);
+  });
+  return backendLogStream;
+}
+
+function writeSupervisorLine(line) {
+  const stamped = `[${new Date().toISOString()}] [supervisor] ${line}\n`;
+  console.log(stamped.trim());
+  try { backendLogStream?.write(stamped); } catch { /* ignore */ }
+}
+
+function pipeChildOutputToLog(child) {
+  if (!child) return;
+  const stamp = (prefix) => (chunk) => {
+    const text = chunk.toString();
+    // Mirror to parent so live tail (e.g. `npm run electron:dev`) keeps working.
+    if (prefix === "stderr") process.stderr.write(text);
+    else process.stdout.write(text);
+    const lines = text.split("\n");
+    for (const raw of lines) {
+      if (!raw.length) continue;
+      try {
+        backendLogStream?.write(`[${new Date().toISOString()}] [${prefix}] ${raw}\n`);
+      } catch { /* ignore */ }
+    }
+  };
+  child.stdout?.on("data", stamp("stdout"));
+  child.stderr?.on("data", stamp("stderr"));
+}
+
+function showBackendFatalDialog() {
+  const logPath = getBackendLogPath();
+  const msg =
+    `Der interne Server stürzt wiederholt ab und konnte nicht stabilisiert werden.\n\n` +
+    `Log-Datei: ${logPath}\n\n` +
+    `Bitte App neu starten. Wenn der Fehler erneut auftritt, schicken Sie die Log-Datei an den Support.`;
+  try {
+    dialog.showErrorBox("Interner Fehler — Server ausgefallen", msg);
+  } catch { /* before app is ready */ }
+}
+
+function scheduleBackendRestart(code, signal) {
+  if (backendIntentionallyStopping) return;
+  const now = Date.now();
+  while (
+    backendRestartTimestamps.length > 0 &&
+    backendRestartTimestamps[0] < now - BACKEND_RESTART_WINDOW_MS
+  ) {
+    backendRestartTimestamps.shift();
+  }
+  if (backendRestartTimestamps.length >= BACKEND_MAX_RESTARTS_PER_WINDOW) {
+    writeSupervisorLine(
+      `giving up: ${BACKEND_MAX_RESTARTS_PER_WINDOW} crashes in ${BACKEND_RESTART_WINDOW_MS}ms`,
+    );
+    showBackendFatalDialog();
+    return;
+  }
+  /** Exponential backoff: 500ms, 1s, 2s, 4s, 8s. */
+  const attempt = backendRestartTimestamps.length;
+  const delay = 500 * Math.pow(2, attempt);
+  backendRestartTimestamps.push(now);
+  writeSupervisorLine(
+    `restarting in ${delay}ms (attempt ${attempt + 1}/${BACKEND_MAX_RESTARTS_PER_WINDOW}, last exit code=${code}, signal=${signal})`,
+  );
+  setTimeout(() => {
+    if (backendIntentionallyStopping) return;
+    const next = startBackend();
+    if (!next) return;
+    backendChild = next;
+    attachBackendSupervisor(backendChild);
+  }, delay);
+}
+
+function attachBackendSupervisor(child) {
+  if (!child) return;
+  pipeChildOutputToLog(child);
+  child.on("error", (err) => {
+    writeSupervisorLine(`process error: ${err?.message ?? err}`);
+  });
+  child.on("exit", (code, signal) => {
+    writeSupervisorLine(`backend exited (code=${code}, signal=${signal})`);
+    scheduleBackendRestart(code, signal);
+  });
+}
+
+/* ── Daily SQLite Backup ──────────────────────────────────────────────────
+   Writes `userData/backups/salon-YYYY-MM-DD.db` via SQLite's `VACUUM INTO`,
+   which produces a defragmented, transactionally-consistent copy without
+   blocking the live backend (WAL handles concurrent readers).
+
+   - Tempfile + rename → atomic publish; partial writes never replace an
+     existing good backup.
+   - Retention: keep the 14 most-recent files; older ones are unlinked.
+   - Idempotent across multiple boots in a day (re-runs overwrite).            */
+
+const BACKUP_RETENTION = 14;
+
+function getBackupsDir() {
+  const dir = path.join(app.getPath("userData"), "backups");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function pruneOldBackups() {
+  try {
+    const dir = getBackupsDir();
+    const files = readdirSync(dir)
+      .filter((n) => /^salon-\d{4}-\d{2}-\d{2}\.db$/.test(n))
+      .sort()
+      .reverse(); // newest first by filename (ISO date sorts lexically)
+    for (let i = BACKUP_RETENTION; i < files.length; i++) {
+      try { unlinkSync(path.join(dir, files[i])); } catch { /* ignore */ }
+    }
+  } catch (err) {
+    writeSupervisorLine(`backup-prune failed: ${err?.message}`);
+  }
+}
+
+async function performDailyBackup() {
+  let sqlite = null;
+  try {
+    const dbPath = getDbPath();
+    if (!existsSync(dbPath)) {
+      writeSupervisorLine("backup skipped: db file does not exist yet");
+      return;
+    }
+    const backupsDir = getBackupsDir();
+    const ymd = new Date().toISOString().slice(0, 10);
+    const dest = path.join(backupsDir, `salon-${ymd}.db`);
+    const tmpDest = dest + ".tmp";
+
+    // Lazy import — better-sqlite3 is heavy and only needed during backup ticks.
+    const { default: Database } = await import("better-sqlite3");
+    sqlite = new Database(dbPath, { readonly: true });
+
+    if (existsSync(tmpDest)) unlinkSync(tmpDest);
+    /** VACUUM INTO does not accept bound parameters — single-quote escape is sufficient. */
+    const escapedTmp = tmpDest.replace(/'/g, "''");
+    sqlite.exec(`VACUUM INTO '${escapedTmp}'`);
+    if (existsSync(dest)) unlinkSync(dest);
+    renameSync(tmpDest, dest);
+
+    const sizeMb = (statSync(dest).size / (1024 * 1024)).toFixed(1);
+    writeSupervisorLine(`backup ok: ${dest} (${sizeMb} MB)`);
+    pruneOldBackups();
+  } catch (err) {
+    writeSupervisorLine(`backup failed: ${err?.message ?? err}`);
+  } finally {
+    try { sqlite?.close(); } catch { /* ignore */ }
+  }
+}
+
+function scheduleDailyBackup() {
+  // First backup fires shortly after startup (give the backend its first
+  // boot window to complete migrations before we open a second connection).
+  setTimeout(() => { void performDailyBackup(); }, 20_000);
+  // Then every 24 hours.
+  setInterval(() => { void performDailyBackup(); }, 24 * 60 * 60 * 1000);
 }
 
 /* ── Backend starten ─────────────────────────────────────────────────────── */
@@ -123,11 +343,19 @@ function startBackend() {
     FRONTEND_PATH: frontendPath,
     AUTH_SECRET:   authSecret,
     NODE_ENV:      isDev ? "development" : "production",
+    LOG_DIR:       getBackendLogDir(),
     ...(isDev ? {} : { SERVE_SPA: "1" }),
   };
 
   console.log("[electron] DATABASE_PATH:", env.DATABASE_PATH);
   console.log("[electron] isDev:", isDev);
+
+  // Pipe stdout/stderr so the supervisor can mirror them to the rotating log file.
+  // (Was "inherit" — that gave a live console but no persistent log for support.)
+  const childStdio = ["ignore", "pipe", "pipe"];
+
+  openBackendLogStream();
+  writeSupervisorLine(`spawn backend (dev=${isDev}, db=${env.DATABASE_PATH})`);
 
   if (isDev) {
     if (!existsSync(tsxCli)) {
@@ -142,7 +370,7 @@ function startBackend() {
     return spawn(
       process.platform === "win32" ? "node.exe" : "node",
       [tsxCli, "src/index.ts"],
-      { cwd: backendCwd, env, stdio: "inherit" },
+      { cwd: backendCwd, env, stdio: childStdio },
     );
   }
 
@@ -163,7 +391,7 @@ function startBackend() {
     {
       cwd:   backendCwd,
       env:   { ...env, ELECTRON_RUN_AS_NODE: "1" },
-      stdio: "inherit",
+      stdio: childStdio,
     },
   );
 }
@@ -536,6 +764,7 @@ app.whenReady().then(async () => {
 
   backendChild = startBackend();
   if (!backendChild) return; // Fehler → App beendet sich
+  attachBackendSupervisor(backendChild);
 
   // Warten bis Backend erreichbar
   await waitForHttpOk(`http://127.0.0.1:${API_PORT}/api/health`, 45_000).catch((e) => {
@@ -551,6 +780,7 @@ app.whenReady().then(async () => {
 
   await createWindow();
   setupAutoUpdater();
+  scheduleDailyBackup();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -563,8 +793,14 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  // Mark so the supervisor doesn't try to restart the backend during shutdown.
+  backendIntentionallyStopping = true;
   killChild(viteChild,   "vite");
   killChild(backendChild, "backend");
+  try {
+    writeSupervisorLine("shutdown — stopping backend intentionally");
+    backendLogStream?.end();
+  } catch { /* ignore */ }
 });
 
 /* ── IPC ─────────────────────────────────────────────────────────────────── */

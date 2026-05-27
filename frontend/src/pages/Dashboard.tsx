@@ -18,7 +18,6 @@ import { isOwnerRole, isSalonManagementRole } from "../lib/staffRoles";
 import { ClientProfile } from "./ClientProfile";
 import { fortressTwiceDailyTick } from "../lib/externalFortressBackup";
 import { BERLIN } from "../lib/formatTime";
-import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { AddClientModal } from "../components/ui/AddClientModal";
 import { AddServiceModal } from "../components/ui/AddServiceModal";
 import { AddProductModal } from "../components/ui/AddProductModal";
@@ -184,6 +183,7 @@ export function DashboardLayout() {
           </p>
           <SidebarLink to="/agenda" featured>📅 Agenda</SidebarLink>
           <SidebarLink to="/bookings" featured>➕ Termin buchen</SidebarLink>
+          <SidebarLink to="/kunden" featured>👥 Kunden</SidebarLink>
           <SidebarLink to="/inventur">📦 Lager</SidebarLink>
 
           <div className="my-2 border-t border-deep-charcoal/[0.06]" />
@@ -269,9 +269,6 @@ export function DashboardLayout() {
           <div className="flex items-center justify-between gap-4">
             <OrphanBanner />
             <div className="flex shrink-0 items-center gap-1.5">
-              {/* Dark / light mode toggle */}
-              <ThemeToggle />
-
               <button
                 type="button"
                 onClick={() => setHelpOpen(true)}

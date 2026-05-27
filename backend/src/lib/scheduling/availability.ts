@@ -1,6 +1,7 @@
-import { and, eq, gt, inArray, isNull, lt, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, ne } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema.js";
+import { whereNotDeleted } from "../db/softDelete.js";
 import {
   appointmentsOverlapWithBuffer,
   SANITIZATION_BUFFER_MS,
@@ -26,7 +27,7 @@ function countOverlapping(
   const loose = and(
     eq(schema.appointments.staffId, opts.staffId),
     inArray(schema.appointments.status, [...ACTIVE_STATUSES]),
-    isNull(schema.appointments.deletedAt),
+    whereNotDeleted(schema.appointments),
     lt(schema.appointments.startAt, new Date(newE + SANITIZATION_BUFFER_MS)),
     gt(schema.appointments.endAt, new Date(newS - SANITIZATION_BUFFER_MS)),
   );

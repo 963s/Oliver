@@ -1,4 +1,5 @@
-import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { whereNotDeleted } from "../db/softDelete.js";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../db/schema.js";
@@ -26,7 +27,7 @@ function fetchAppointmentsDay(
     .from(schema.appointments)
     .where(
       and(
-        isNull(schema.appointments.deletedAt),
+        whereNotDeleted(schema.appointments),
         gte(schema.appointments.startAt, new Date(startMs - 7200000)),
         lte(schema.appointments.startAt, new Date(startMs + 30 * 60 * 60 * 1000)),
       ),

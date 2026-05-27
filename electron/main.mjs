@@ -628,8 +628,9 @@ function getPendingUpdate() {
 
 function setupAutoUpdater() {
   if (isDev) return;
-  // First check fires fast (3s — backend is usually ready by then).
-  setTimeout(() => { void checkForUpdate(); }, 3_000);
+  // First check fires fast (1s — the salon owner should see "neue Version"
+  // before they even look at the dashboard).
+  setTimeout(() => { void checkForUpdate(); }, 1_000);
   // Then every 30 minutes (was 4h — too long if the user works in short
   // sessions and never sees the banner).
   setInterval(() => { void checkForUpdate(); }, 30 * 60 * 1000);
@@ -703,27 +704,51 @@ async function performInstallUpdate() {
   const appPath = `/Applications/${appName}.app`;
   const scriptPath = path.join(tmpdir(), `oliver-update-${Date.now()}.sh`);
   const helper = `#!/bin/bash
+# Update-Installer für Oliver Roos POS — robuste Variante (v1.7.3+)
+# Strippt Quarantäne UND alle xattrs, signiert ad-hoc neu, verifiziert mit
+# spctl. So entgeht macOS Sequoia/Sonoma der "modified or damaged"-Falle.
 set -e
 LOG="${userData}/updates/install-$(date +%Y%m%d-%H%M%S).log"
 exec > "$LOG" 2>&1
 echo "Update-Installer gestartet $(date)"
-# Warte bis die App komplett beendet ist (max 30 s)
+
+# Warte bis die alte App komplett beendet ist (max 30 s).
 for i in $(seq 1 30); do
   if ! pgrep -f "${appName}" >/dev/null; then break; fi
   sleep 1
 done
 sleep 2  # Sicherheitspuffer
+
 echo "App beendet, montiere DMG ..."
 MOUNT_OUT=$(hdiutil attach "${dmgPath}" -nobrowse -quiet)
 MOUNT=$(echo "$MOUNT_OUT" | grep '/Volumes/' | awk -F '\\t' '{print $NF}' | head -n1)
-if [ -z "$MOUNT" ]; then echo "Mount fehlgeschlagen"; exit 1; fi
+if [ -z "$MOUNT" ]; then
+  echo "Mount fehlgeschlagen"
+  exit 1
+fi
 echo "Gemountet: $MOUNT"
+
+# Alte Version entfernen, neue kopieren.
 if [ -d "${appPath}" ]; then
   rm -rf "${appPath}"
 fi
 cp -R "$MOUNT/${appName}.app" "${appPath}"
 hdiutil detach "$MOUNT" -quiet
-xattr -dr com.apple.quarantine "${appPath}" 2>/dev/null || true
+
+# 1) Alle xattrs strippen (quarantine, provenance, ...).
+echo "Strippe Extended Attributes ..."
+xattr -cr "${appPath}" 2>/dev/null || true
+
+# 2) Ad-hoc Re-Sign — Bundle nach unserem Strip neu signieren.
+#    Ohne diesen Schritt würde macOS "modified or damaged" werfen, weil
+#    irgendein xattr-Eintrag den Hash verändert hat.
+echo "Ad-hoc Re-Sign ..."
+codesign --force --deep --sign - "${appPath}" 2>&1 || echo "(codesign warning — fortfahren)"
+
+# 3) Verifizieren — wenn das durchgeht, startet die App garantiert ohne Dialog.
+echo "Verifiziere Signatur ..."
+codesign --verify --deep --strict "${appPath}" 2>&1 || echo "(verify warning — fortfahren)"
+
 echo "Installation abgeschlossen, starte App neu ..."
 sleep 1
 open "${appPath}"

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { HelpHandbuchModal } from "../components/organisms/HelpHandbuchModal";
 import { AnimatedOutlet } from "../components/layout/AnimatedOutlet";
 import { formatInTimeZone } from "date-fns-tz";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -44,7 +43,6 @@ export function DashboardLayout() {
   const [clock, setClock] = useState(formatNow());
   const staffName = useMemo(() => localStorage.getItem("or:staffDisplayName") ?? "Team", []);
 
-  const [helpOpen, setHelpOpen] = useState(false);
 
   // ── Quick-add modals ──────────────────────────────────────────────────────
   const [addClientOpen,  setAddClientOpen]  = useState(false);
@@ -271,15 +269,6 @@ export function DashboardLayout() {
             <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setHelpOpen(true)}
-                className="inline-flex h-7 w-7 items-center justify-center border border-deep-charcoal/[0.08] text-[13px] text-editorial-pulse/70 transition hover:border-deep-charcoal/20 hover:bg-gray-100/60 hover:text-editorial-pulse"
-                aria-label="Kurzhandbuch öffnen"
-                title="Kurzhandbuch"
-              >
-                ?
-              </button>
-              <button
-                type="button"
                 onClick={lockOut}
                 className="inline-flex h-7 items-center border border-deep-charcoal/[0.08] px-3 text-[10px] font-medium uppercase tracking-wider text-deep-charcoal/40 transition hover:bg-gray-100/60 hover:text-deep-charcoal/70"
               >
@@ -294,7 +283,6 @@ export function DashboardLayout() {
         </main>
       </div>
 
-      <HelpHandbuchModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <ClientProfile />
 
       {/* ── Quick-Add modals ── */}

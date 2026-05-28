@@ -72,16 +72,26 @@ export default function Kasse(): JSX.Element {
     };
   }, []);
 
-  const filteredClients = useMemo(() => {
+  /**
+   * Filter active (non-anonymized) clients by free-text search.
+   * Returns the FULL match set + the underlying count so the UI can show
+   * "30 von 1000 angezeigt" instead of silently capping like before.
+   */
+  const { filteredClients, totalActiveCount } = useMemo(() => {
+    const active = clients.filter((c) => c.anonymizedAt == null);
     const q = search.trim().toLowerCase();
-    if (!q) return clients.slice(0, 20);
-    return clients
-      .filter((c) => {
-        const fields = [c.name, c.firstName, c.lastName, c.phone, c.email];
-        return fields.some((v) => (v ?? "").toLowerCase().includes(q));
-      })
-      .slice(0, 30);
+    if (!q) return { filteredClients: active, totalActiveCount: active.length };
+    const out = active.filter((c) => {
+      const fields = [c.name, c.firstName, c.lastName, c.phone, c.email];
+      return fields.some((v) => (v ?? "").toLowerCase().includes(q));
+    });
+    return { filteredClients: out, totalActiveCount: active.length };
   }, [clients, search]);
+
+  /** Visible cap: render 50 to keep DOM light, but tell the user there's more. */
+  const RENDER_CAP = 50;
+  const visibleClients = filteredClients.slice(0, RENDER_CAP);
+  const hiddenCount = Math.max(0, filteredClients.length - visibleClients.length);
 
   const openSessions = useMemo(
     () => sessions.filter((s) => s.status === "open"),
@@ -239,8 +249,7 @@ export default function Kasse(): JSX.Element {
               {search ? "Keine Treffer." : "Noch keine Kunden angelegt."}
             </li>
           ) : (
-            filteredClients
-              .filter((c) => c.anonymizedAt == null)
+            visibleClients
               .map((c) => {
                 const displayName =
                   [c.firstName, c.lastName].filter((s) => s?.trim()).join(" ").trim() || c.name;
@@ -272,6 +281,12 @@ export default function Kasse(): JSX.Element {
               })
           )}
         </ul>
+        {hiddenCount > 0 && (
+          <p className="mt-2 text-sm text-[var(--app-text-subtle)]">
+            {visibleClients.length} von {filteredClients.length} angezeigt
+            {!search && ` · insgesamt ${totalActiveCount} Kunden — zum Eingrenzen suchen`}
+          </p>
+        )}
       </section>
 
       {/* ── 3. Open sessions to resume ──────────────────────────────────── */}

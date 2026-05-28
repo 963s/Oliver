@@ -648,6 +648,8 @@ function loadPersistedPendingUpdate() {
     if (obj && typeof obj.version === "string") {
       // Only honor if the persisted update is genuinely newer than this build.
       if (compareSemver(obj.version, app.getVersion()) > 0) return obj;
+      // Stale (already installed) — clean up so it doesn't linger forever.
+      clearPersistedPendingUpdate();
     }
   } catch {/* ignore */}
   return null;

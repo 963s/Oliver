@@ -332,16 +332,28 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
     }
   };
 
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  /**
+   * Try to print the saved invoice via the hardware service. If no TSE
+   * printer is reachable (the common case for the salon today — no signed
+   * printer yet), we surface a friendly explanation instead of the raw
+   * "druck_failed" / API error string. The invoice itself is already
+   * saved server-side, so this is purely about telling the operator what
+   * happened.
+   */
   const printReceipt = async () => {
     if (completedInvoiceId == null) return;
     setPrintBusy(true);
     setPrintMsg("");
+    setPrintError(null);
     useUiShellStore.getState().triggerPrintPaper(true);
     try {
       await apiPost(`/api/hardware/print/invoice/${completedInvoiceId}`, {});
       setPrintMsg("Beleg wurde an die Druckwarteschlange gesendet.");
     } catch (e) {
-      setPrintMsg(e instanceof Error ? e.message : "druck_failed");
+      const raw = e instanceof Error ? e.message : "druck_failed";
+      setPrintError(raw);
     } finally {
       setPrintBusy(false);
       window.setTimeout(() => useUiShellStore.getState().triggerPrintPaper(false), 900);
@@ -378,6 +390,44 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
               {printBusy ? "Drucke…" : "Beleg drucken"}
             </button>
             {printMsg && <p className="text-sm text-deep-charcoal/60">{printMsg}</p>}
+            {printError && (
+              <div className="mt-2 w-full max-w-xl rounded-xl border-2 border-amber-500/80 bg-amber-50 p-4 text-left">
+                <p className="text-base font-semibold text-amber-900">
+                  Drucken nicht möglich
+                </p>
+                <p className="mt-2 text-sm text-amber-900/85">
+                  Keine TSE-Drucker erkannt oder Verbindung gestört.
+                  Der Beleg <strong>#{completedInvoiceId}</strong> ist
+                  im System gespeichert und kann später gedruckt werden
+                  (Einstellungen → Belege).
+                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-amber-900/60">
+                    Technisches Detail
+                  </summary>
+                  <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] text-amber-900/70">
+                    {printError}
+                  </pre>
+                </details>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPrintError(null)}
+                    className="min-h-11 rounded-md border border-amber-700/40 bg-white px-4 text-sm font-medium text-amber-900"
+                  >
+                    Verstanden
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void printReceipt()}
+                    disabled={printBusy}
+                    className="min-h-11 rounded-md bg-amber-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Erneut versuchen
+                  </button>
+                </div>
+              </div>
+            )}
             <button
               type="button"
               className="min-h-12 min-w-[220px] rounded-2xl border border-deep-charcoal/14 bg-transparent px-5 text-[11px] font-light uppercase tracking-[0.24em] text-deep-charcoal/85 "
@@ -385,6 +435,7 @@ export function CheckoutModal({ open, onClose, sessionId, onSuccess }: CheckoutM
                 onClose();
                 setCompletedInvoiceId(null);
                 setPrintMsg("");
+                setPrintError(null);
               }}
             >
               Fertig

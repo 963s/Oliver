@@ -29,6 +29,22 @@ type CartState = {
       deductMl?: number | null;
     },
   ) => void;
+  /**
+   * Ad-hoc line: free-form label + price + VAT, never merged with existing
+   * catalog rows (gets a unique serviceKey per call). Used by the "Eigene
+   * Position" button in ChunkyCart for one-off services / products that
+   * aren't yet in the catalog.
+   */
+  addCustomLine: (
+    sessionId: string,
+    line: { label: string; unitPriceCents: number; vatRateBps: number },
+  ) => void;
+  /** Overrides the line's unit price (in cents) — used by inline price edit. */
+  setUnitPrice: (
+    sessionId: string,
+    itemId: string,
+    unitPriceCents: number,
+  ) => void;
   updateQty: (sessionId: string, itemId: string, delta: number) => void;
   removeItem: (sessionId: string, itemId: string) => void;
   clearCart: (sessionId: string) => void;
@@ -79,6 +95,41 @@ export const useCartStore = create<CartState>()(
             deductMl: line.deductMl ?? null,
           };
           return { carts: { ...state.carts, [key]: [...prev, lineItem] } };
+        });
+      },
+
+      addCustomLine(sessionId, line) {
+        const key = String(sessionId);
+        const uniqueKey = `custom:${newLineId()}`;
+        set((state) => {
+          const prev = state.carts[key] ?? [];
+          const lineItem: CartItem = {
+            id: newLineId(),
+            serviceKey: uniqueKey,
+            label: line.label,
+            unitPriceCents: Math.max(0, Math.floor(line.unitPriceCents)),
+            qty: 1,
+            vatRateBps: line.vatRateBps,
+            inventoryItemId: null,
+            deductMl: null,
+          };
+          return { carts: { ...state.carts, [key]: [...prev, lineItem] } };
+        });
+      },
+
+      setUnitPrice(sessionId, itemId, unitPriceCents) {
+        const key = String(sessionId);
+        const safeCents = Math.max(0, Math.floor(unitPriceCents));
+        set((state) => {
+          const prev = state.carts[key] ?? [];
+          return {
+            carts: {
+              ...state.carts,
+              [key]: prev.map((c) =>
+                c.id === itemId ? { ...c, unitPriceCents: safeCents } : c,
+              ),
+            },
+          };
         });
       },
 

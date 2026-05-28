@@ -6,7 +6,7 @@
  * Dev:        Backend (tsx) + Frontend (Vite dev-server)
  */
 
-import { app, BrowserWindow, Menu, ipcMain, shell, dialog, Tray, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, shell, dialog, Tray, nativeImage, Notification } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -576,6 +576,7 @@ async function checkForUpdate({ manual = false } = {}) {
     if (cmp <= 0) {
       lastCheckOutcome = "no_update";
       pendingUpdate = null;
+      clearPersistedPendingUpdate();
       console.log(`[updater] up-to-date (latest=${latest}, current=${current})`);
       // Echo back to renderer so a manual "Jetzt prüfen" gets confirmation.
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -592,6 +593,7 @@ async function checkForUpdate({ manual = false } = {}) {
     const dmgUrl = pickDmgForArch(rel);
     const releaseUrl = rel.html_url || `https://github.com/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`;
     pendingUpdate = { version: latest, dmgUrl, releaseUrl, notes: rel.body ?? "" };
+    persistPendingUpdate(pendingUpdate);
     lastCheckOutcome = "update_available";
     console.log(`[updater] NEW VERSION ${latest} (current ${current})  DMG: ${dmgUrl ?? "—"}`);
 
@@ -601,6 +603,7 @@ async function checkForUpdate({ manual = false } = {}) {
     lastNotifiedVersion = latest;
     if (isNewToThisSession || manual) {
       broadcastBanner(latest, current, dmgUrl, releaseUrl, rel.body);
+      showNativeUpdateNotification(latest);
     }
     return { status: "update_available", current, latest, dmgUrl };
   } catch (err) {
@@ -626,16 +629,105 @@ function getPendingUpdate() {
     : null;
 }
 
+/* ── Defense-in-depth: persist pendingUpdate across app launches ──
+   If the user closes the app while the banner is still visible, we want
+   the very next launch to know there's an update waiting BEFORE the
+   GitHub poll even fires. Eliminates the "I opened the app right after
+   the new release, didn't see the banner" race. */
+
+function pendingUpdateFile() {
+  return path.join(app.getPath("userData"), "pending-update.json");
+}
+
+function loadPersistedPendingUpdate() {
+  try {
+    const p = pendingUpdateFile();
+    if (!existsSync(p)) return null;
+    const txt = readFileSync(p, "utf8");
+    const obj = JSON.parse(txt);
+    if (obj && typeof obj.version === "string") {
+      // Only honor if the persisted update is genuinely newer than this build.
+      if (compareSemver(obj.version, app.getVersion()) > 0) return obj;
+    }
+  } catch {/* ignore */}
+  return null;
+}
+
+function persistPendingUpdate(p) {
+  try {
+    writeFileSync(pendingUpdateFile(), JSON.stringify(p), "utf8");
+  } catch (err) {
+    writeSupervisorLine(`pending-update persist failed: ${err?.message}`);
+  }
+}
+
+function clearPersistedPendingUpdate() {
+  try {
+    if (existsSync(pendingUpdateFile())) unlinkSync(pendingUpdateFile());
+  } catch {/* ignore */}
+}
+
+/* ── Native OS notification on update found ────────────────────────────── */
+
+let lastNotifiedNative = null;
+
+function showNativeUpdateNotification(version) {
+  if (!Notification.isSupported()) return;
+  if (lastNotifiedNative === version) return;
+  lastNotifiedNative = version;
+  try {
+    const n = new Notification({
+      title: "Oliver Roos Friseur",
+      body: `Neue Version ${version} verfügbar — jetzt installieren`,
+      silent: false,
+    });
+    n.on("click", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    });
+    n.show();
+  } catch (err) {
+    writeSupervisorLine(`native notification failed: ${err?.message}`);
+  }
+}
+
+/* ── Aggressive update detection (v1.8.0) ────────────────────────────────
+   Defense-in-depth so the salon owner cannot miss a release:
+     - Persisted pendingUpdate restored before first poll
+     - Initial check 1s after window load
+     - Periodic check every 5 minutes (was 30 — too long)
+     - Re-check on every browser-window-focus event (main-process level —
+       more reliable than window.focus in the renderer)
+     - Re-check on every renderer mount via or:checkForUpdate IPC
+     - Native OS notification fires on first detection                       */
+
 function setupAutoUpdater() {
   if (isDev) return;
-  // First check fires fast (1s — the salon owner should see "neue Version"
-  // before they even look at the dashboard).
-  setTimeout(() => { void checkForUpdate(); }, 1_000);
-  // Then every 30 minutes (was 4h — too long if the user works in short
-  // sessions and never sees the banner).
-  setInterval(() => { void checkForUpdate(); }, 30 * 60 * 1000);
 
-  // Re-check when the OS network comes back online.
+  // 1) Hydrate any persisted pending update from prior session so the banner
+  //    re-renders immediately (UpdateBanner reads pendingUpdate on mount).
+  const persisted = loadPersistedPendingUpdate();
+  if (persisted) {
+    pendingUpdate = persisted;
+    writeSupervisorLine(`restored persisted pendingUpdate: ${persisted.version}`);
+  }
+
+  // 2) Initial poll — fires once the window has finished loading.
+  setTimeout(() => { void checkForUpdate(); }, 1_000);
+
+  // 3) Periodic poll every 5 minutes.
+  setInterval(() => { void checkForUpdate(); }, 5 * 60 * 1000);
+
+  // 4) Native focus → re-check. Wins over DOM window.focus because Electron
+  //    actually fires this consistently when the user comes back from another
+  //    app via Cmd-Tab.
+  app.on("browser-window-focus", () => {
+    void checkForUpdate();
+  });
+
+  // 5) Renderer signals network came back online → re-check.
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.executeJavaScript(
       "window.addEventListener('online', () => window.orElectron?.checkForUpdate?.());"

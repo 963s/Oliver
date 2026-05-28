@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatedOutlet } from "../components/layout/AnimatedOutlet";
 import { formatInTimeZone } from "date-fns-tz";
-import { CalendarDays, CalendarPlus, Users, Package } from "lucide-react";
+import { CalendarDays, CalendarPlus, Users, Package, CreditCard } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BrandMotif } from "../components/brand/BrandMotif";
 import { editorialPulseForPath } from "../lib/editorialTheme";
@@ -183,6 +183,7 @@ export function DashboardLayout() {
           <SidebarLink to="/agenda" featured><CalendarDays size={18} strokeWidth={1.75} className="mr-2 inline-block align-[-3px]" />Agenda</SidebarLink>
           <SidebarLink to="/bookings" featured><CalendarPlus size={18} strokeWidth={1.75} className="mr-2 inline-block align-[-3px]" />Termin buchen</SidebarLink>
           <SidebarLink to="/kunden" featured><Users size={18} strokeWidth={1.75} className="mr-2 inline-block align-[-3px]" />Kunden</SidebarLink>
+          <SidebarLink to="/kasse" featured><CreditCard size={18} strokeWidth={1.75} className="mr-2 inline-block align-[-3px]" />Kasse</SidebarLink>
           <SidebarLink to="/inventur"><Package size={18} strokeWidth={1.75} className="mr-2 inline-block align-[-3px]" />Lager</SidebarLink>
 
           <div className="my-2 border-t border-deep-charcoal/[0.06]" />

@@ -29,6 +29,7 @@ import { RequireSalonManagement } from "./components/auth/RequireSalonManagement
 import { AdminDiagnostics } from "./pages/AdminDiagnostics";
 import { HelpHandbuch } from "./pages/HelpHandbuch";
 import KundenBrowser from "./pages/KundenBrowser";
+import Kasse from "./pages/Kasse";
 import { EmbeddedDesktopGate } from "./shell/EmbeddedDesktopGate";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { VersionBadge } from "./components/VersionBadge";
@@ -94,6 +95,7 @@ function AppRoutes() {
         <Route path="agenda" element={<AgendaView />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="kunden" element={<KundenBrowser />} />
+        <Route path="kasse" element={<Kasse />} />
         <Route path="walk-in" element={<WalkIn />} />
         <Route path="scan" element={<ScanDeduct />} />
         <Route path="mirror" element={<MirrorView />} />
